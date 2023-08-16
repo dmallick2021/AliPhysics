@@ -34,6 +34,8 @@
  */
 
 #include <AliTLorentzVector.h>
+#include <AliAnalysisUtils.h>
+#include <AliAODMCParticle.h>
 
 #include "AliParticleTreeHandler.h"
 
@@ -47,10 +49,13 @@ ClassImp(AliParticleTreeHandler);
 AliParticleTreeHandler::AliParticleTreeHandler():
   TObject(),
   fTreeParticle(nullptr),
+  fIsMCGen(false),
+  fMCHeader(nullptr),
   fParticleContainer(nullptr),
   fParticlePt(-999.),
   fParticleEta(-999.),
   fParticlePhi(-999.),
+  fParticleCharge(-999.),
   fRunNumber(0),
   fEventID(0), 
   fEventIDExt(0), 
@@ -85,6 +90,11 @@ TTree* AliParticleTreeHandler::BuildTree(TString name, TString title)
   fTreeParticle->Branch("ParticlePt",&fParticlePt);
   fTreeParticle->Branch("ParticleEta",&fParticleEta);
   fTreeParticle->Branch("ParticlePhi",&fParticlePhi);
+  fTreeParticle->Branch("ParticleCharge",&fParticleCharge);
+    
+  if(!name.CompareTo("tree_Particle_gen")) {
+    fIsMCGen = true;
+  }
   
   return fTreeParticle;
 }
@@ -102,16 +112,34 @@ void AliParticleTreeHandler::FillTree(int runNumber, int eventID, int eventID_Ex
   fEventIDLong = eventID_Long;
   
   AliTLorentzVector partVec;
-  for (const auto particleIterator : fParticleContainer->accepted_momentum()) {
+  AliVParticle* vp;
 
+  for (const auto particleIterator : fParticleContainer->accepted_momentum()) {
+    
+    // Skip MC gen particles that come from pileup
+    if(fIsMCGen) {
+      AliAODMCParticle* mcPart = dynamic_cast<AliAODMCParticle*>(particleIterator.second);
+      
+      Bool_t isParticleFromOutOfBunchPileUpEvent = kFALSE;
+      isParticleFromOutOfBunchPileUpEvent = AliAnalysisUtils::IsParticleFromOutOfBunchPileupCollision(
+                                                                  mcPart->GetLabel(),
+                                                                  fMCHeader,
+                                                                  fParticleContainer->GetArray());
+      if(isParticleFromOutOfBunchPileUpEvent) {
+        continue;
+      }
+    }
+      
     // Get particle four-vector
     partVec.Clear();
     partVec = particleIterator.first;
+    vp = particleIterator.second;
     
     // Set particle variables
     fParticleEta = partVec.Eta();
     fParticlePhi = partVec.Phi_0_2pi();
     fParticlePt = partVec.Pt();
+    fParticleCharge = vp->Charge();
     
     // Fill jet tree
     fTreeParticle->Fill();

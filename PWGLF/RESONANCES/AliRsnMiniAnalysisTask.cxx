@@ -50,6 +50,7 @@
 #include "AliRsnMiniAnalysisTask.h"
 #include "AliRsnMiniResonanceFinder.h"
 //#include "AliSpherocityUtils.h"
+#include "AliPPVsMultUtils.h"
 
 #include "AliTimeRangeCut.h"
 
@@ -84,6 +85,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask() :
    fHAEventsVsMulti(0x0),
    fHAEventsVsTracklets(0x0),
    fHAEventVzCent(0x0),
+   fHAPhiSpherocity(0x0),
    fHAEventSpherocityCent(0x0),
    fHAEventMultiCent(0x0),
    fHAEventRefMultiCent(0x0),
@@ -115,6 +117,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask() :
    fComputeSpherocity(kFALSE),
    fTrackFilter(0x0),
    fSpherocity(-10),
+  fSpherocityTrack(10),
    fResonanceFinders(0)
 {
 //
@@ -156,6 +159,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask(const char *name, Bool_t useMC,Bo
    fHAEventsVsMulti(0x0),
    fHAEventsVsTracklets(0x0),
    fHAEventVzCent(0x0),
+   fHAPhiSpherocity(0x0),
    fHAEventSpherocityCent(0x0),
    fHAEventMultiCent(0x0),
    fHAEventRefMultiCent(0x0),
@@ -187,6 +191,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask(const char *name, Bool_t useMC,Bo
    fComputeSpherocity(kFALSE),
    fTrackFilter(0x0),
    fSpherocity(-10),
+   fSpherocityTrack(10),
    fResonanceFinders(0)
 {
 //
@@ -229,6 +234,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask(const AliRsnMiniAnalysisTask &cop
    fHAEventsVsMulti(0x0),
    fHAEventsVsTracklets(0x0),
    fHAEventVzCent(0x0),
+   fHAPhiSpherocity(0x0),
    fHAEventSpherocityCent(0x0),
    fHAEventMultiCent(0x0),
    fHAEventRefMultiCent(0x0),
@@ -258,6 +264,7 @@ AliRsnMiniAnalysisTask::AliRsnMiniAnalysisTask(const AliRsnMiniAnalysisTask &cop
    fComputeSpherocity(copy.fComputeSpherocity),
    fTrackFilter(copy.fTrackFilter),
    fSpherocity(copy.fSpherocity),
+   fSpherocityTrack(copy.fSpherocityTrack),
    fResonanceFinders(copy.fResonanceFinders)
 {
 //
@@ -304,6 +311,7 @@ AliRsnMiniAnalysisTask &AliRsnMiniAnalysisTask::operator=(const AliRsnMiniAnalys
    fHAEventsVsMulti = copy.fHAEventsVsMulti;
    fHAEventsVsTracklets = copy.fHAEventsVsTracklets;
    fHAEventVzCent = copy.fHAEventVzCent;
+   fHAPhiSpherocity = copy.fHAPhiSpherocity;
    fHAEventSpherocityCent = copy.fHAEventSpherocityCent;
    fHAEventMultiCent = copy.fHAEventMultiCent;
    fHAEventRefMultiCent = copy.fHAEventRefMultiCent;
@@ -330,6 +338,7 @@ AliRsnMiniAnalysisTask &AliRsnMiniAnalysisTask::operator=(const AliRsnMiniAnalys
    fComputeSpherocity = copy.fComputeSpherocity;
    fTrackFilter = copy.fTrackFilter;
    fSpherocity = copy.fSpherocity;
+   fSpherocityTrack = copy.fSpherocityTrack;
    fResonanceFinders = copy.fResonanceFinders;
 
    return (*this);
@@ -469,7 +478,10 @@ void AliRsnMiniAnalysisTask::UserCreateOutputObjects()
    if(fHAEventVzCent) fOutput->Add(fHAEventVzCent);
    if(fHAEventMultiCent) fOutput->Add(fHAEventMultiCent);
    if(fHAEventRefMultiCent) fOutput->Add(fHAEventRefMultiCent);
-   if(fHAEventSpherocityCent) fOutput->Add(fHAEventSpherocityCent);
+   if(fHAEventSpherocityCent){
+     fOutput->Add(fHAEventSpherocityCent);
+     if(fHAPhiSpherocity)fOutput->Add(fHAPhiSpherocity);
+   }
    if(fHAEventPlane) fOutput->Add(fHAEventPlane);
 
    AliAnalysisTaskFlowVectorCorrections *flowQnVectorTask = dynamic_cast<AliAnalysisTaskFlowVectorCorrections *>(AliAnalysisManager::GetAnalysisManager()->GetTask("FlowQnVectorCorrections"));
@@ -1151,7 +1163,33 @@ Double_t AliRsnMiniAnalysisTask::ComputeCentrality(Bool_t isESD)
 	 }
 
 	 return MultSelection->GetMultiplicityPercentile(s.Data());
-      } else {
+      } 
+          else if (!fCentralityType.CompareTo("MULTV0M")){
+
+	Double_t computedRefMulti = -10.0;
+        Double_t mult=0;
+	
+	
+        if (isESD){AliESDEvent *esdevent = dynamic_cast<AliESDEvent *>(fInputEvent);
+    if (!esdevent) return kFALSE;
+    
+    AliPPVsMultUtils *mult_perc =new AliPPVsMultUtils();
+    mult= mult_perc->GetMultiplicityPercentile(esdevent, "V0M", kFALSE);
+    computedRefMulti=mult;}
+    	
+    else {
+    AliAODEvent *aodevent = dynamic_cast<AliAODEvent *>(fInputEvent);
+    if (!aodevent) return kFALSE;
+    AliPPVsMultUtils *mult_perc = new AliPPVsMultUtils();
+
+     mult= mult_perc->GetMultiplicityPercentile(aodevent, "V0M", kFALSE);
+    computedRefMulti=mult;
+      }  
+                   return computedRefMulti;
+		   
+      }
+
+        else {
          AliError(Form("String '%s' does not define a possible multiplicity/centrality computation", fCentralityType.Data()));
          return -1.0;
       }
@@ -1329,16 +1367,21 @@ Double_t AliRsnMiniAnalysisTask::ComputeSpherocity()
     AliVTrack   *track = (AliVTrack *)evTypeS->GetTrack(i1);
     AliAODTrack *aodt  = dynamic_cast<AliAODTrack *>(track);
     AliESDtrack *esdt  = dynamic_cast<AliESDtrack *>(track);
-    if (aodt) if (!aodt->TestFilterBit(5)) continue;
+    if (aodt){
+      if (!aodt->TestFilterBit(1)) continue;
+      if ( !aodt->IsOn(0x40) ) continue;
+      if ( !aodt->IsOn(0x4) ) continue; 
+    }
     if (esdt) if (!fTrackFilter->IsSelected(esdt)) continue;
     if (track->Pt() < 0.15) continue;
     if(TMath::Abs(track->Eta()) > 0.8) continue;
+    if(fHAPhiSpherocity)fHAPhiSpherocity->Fill(track->Phi());
     //pt[i1] = track->Pt();
     pt[i1] = 1.0;
     sumapt += pt[i1];
     GoodTracks++;
   }
-  if (GoodTracks < 10) return -10.0;
+   if (GoodTracks < fSpherocityTrack) return -10.0;
   //Getting thrust
   for(Int_t i = 0; i < 360/0.1; ++i){
 	Float_t numerador = 0;
@@ -1352,7 +1395,11 @@ Double_t AliRsnMiniAnalysisTask::ComputeSpherocity()
 	  AliVTrack   *track = (AliVTrack *)evTypeS->GetTrack(i1);
 	  AliAODTrack *aodt  = dynamic_cast<AliAODTrack *>(track);
 	  AliESDtrack *esdt  = dynamic_cast<AliESDtrack *>(track);
-	  if (aodt) if (!aodt->TestFilterBit(5)) continue;
+	  if (aodt){
+	    if (!aodt->TestFilterBit(1)) continue;
+	    if ( !aodt->IsOn(0x40) ) continue;
+	    if ( !aodt->IsOn(0x4) ) continue; 
+	  }
 	  if (esdt) if (!fTrackFilter->IsSelected(esdt)) continue;
 	  if (track->Pt() < 0.15) continue;
 	  if(TMath::Abs(track->Eta()) > 0.8) continue;
@@ -1370,7 +1417,7 @@ Double_t AliRsnMiniAnalysisTask::ComputeSpherocity()
 	  }
   }
   spherocity=((Spherocity)*TMath::Pi()*TMath::Pi())/4.0;
-  if (GoodTracks > 9) return spherocity;
+  if (GoodTracks >= fSpherocityTrack) return spherocity;
   else return -10.0;
 }
 
@@ -1864,6 +1911,8 @@ void AliRsnMiniAnalysisTask::SetEventQAHist(TString type,TH1 *histo)
       fHAEventSpherocityCent = (TH2F*) histo;
       fComputeSpherocity = kTRUE;
    }
+   else if(!type.CompareTo("spherocityphi"))fHAPhiSpherocity =(TH1F*) histo;
+
    else if(!type.CompareTo("multicent")) {
       if(multitype.CompareTo("QUALITY") && multitype.CompareTo("TRACKS") && multitype.CompareTo("TRACKLETS")) {
          AliWarning(Form("multiplicity vs. centrality histogram y-axis %s unknown, setting to TRACKS",multitype.Data()));

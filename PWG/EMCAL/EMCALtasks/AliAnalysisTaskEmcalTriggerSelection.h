@@ -666,6 +666,14 @@ public:
   void ConfigureMCPPB8TeV2016();
 
   /**
+   * @brief Trigger configuration for MC anchored to run2 pPb 8 TeV with high L0 threshold(2016)
+   * 
+   * Same L1 settings as in ConfigureMCPPB8TeV2016(), but L0 threshold set to 3.5 GeV instead
+   * of 2.5 GeV
+   */
+  void ConfigureMCPPB8TeV2016HighL0Threshold();
+
+  /**
    * @brief Trigger configuration for run2 pp 5TeV (2017) - data mode
    *
    * Configuration is representing all Level1 triggers available in the
@@ -714,6 +722,97 @@ public:
    * The trigger thresholds are tuned to describe the data.
    */
   void ConfigureMCPP5TeV2017();
+
+  /**
+   * @brief Trigger configuration for run2 Pb-Pb 5.02TeV (2015) - data mode
+   *
+   * Configuration is representing all Level1 triggers available in the
+   * run2 data taking for Pb-Pb 5.02 TeV 2015. This configuration is for the
+   * online mode (data events), correspondingly the trigger patch selection
+   * is applied on trigger patches fulfilling the recalc type. The following
+   * table lists the trigger classes supported together with the corresponding
+   * settings:
+   *
+   * | Trigger class | Acceptance type |   Patch Type   | Threshold (ADC) | Centrality % |
+   * |---------------|-----------------|----------------|-----------------|-----------------|
+   * |     EG1       |     EMCAL       |   EGA (2x2)    |       128       |      0-90%      |
+   * |     DG1       |     DCAL        |   EGA (2x2)    |       128       |      0-90%      |
+   * |     EJ1       |     EMCAL       |   EJE (16x16)  |       255       |      0-90%      |
+   * |     DJ1       |     DCAL        |   EJE (8x8)    |       255       |      0-90%      |
+   *
+   * The trigger thresholds match the ones in https://twiki.cern.ch/twiki/bin/view/ALICE/EMCalTriggerOffline
+   */
+  void ConfigurePBPB2015();
+
+  /**
+   * @brief Trigger configuration for MC anchored to run2 Pb-Pb 5.02 TeV (2015)
+   *
+   * Configuration is representing all Level1 triggers available in the
+   * run2 data taking for Pb-Pb 5.02 TeV 2015. This configuration is for the
+   * simulation mode, correspondingly the trigger patch selection
+   * is applied on trigger patches calulated from FEE energies with energy
+   * smearing applied. The following table lists the trigger classes supported
+   * together with the corresponding settings:
+   *
+   * | Trigger class | Acceptance type |   Patch Type   | Threshold (GeV) | Centrality % |
+   * |---------------|-----------------|----------------|-----------------|-----------------|
+   * |     EG1       |     EMCAL       |   EGA (2x2)    |        10.0          |       0-90%      |
+   * |     DG1       |     DCAL         |   EGA (2x2)    |        10.0           |      0-90%      |
+   * |     EJ1       |     EMCAL       |   EJE (16x16)  |        20.            |      0-90%      |
+   * |     DJ1       |     DCAL        |    EJE (8x8)      |        20.            |      0-90%      |
+   *
+   * The trigger thresholds are tuned to describe the data.
+   */
+  void ConfigureMCPBPB2015();
+
+  /**
+   * @brief Trigger configuration for run2 Pb-Pb 5.02TeV (2018) - data mode
+   *
+   * Configuration is representing all Level1 triggers available in the
+   * run2 data taking for Pb-Pb 5.02 TeV 2018. This configuration is for the
+   * online mode (data events), correspondingly the trigger patch selection
+   * is applied on trigger patches fulfilling the recalc type. The following
+   * table lists the trigger classes supported together with the corresponding
+   * settings:
+   *
+   * | Trigger class | Acceptance type |   Patch Type   | Threshold (ADC) | Centrality % |
+   * |---------------|-----------------|----------------|-----------------|-----------------|
+   * |     EG1       |     EMCAL       |   EGA (2x2)    |       128       |      0-50%      |
+   * |     EG2       |     EMCAL       |   EGA (2x2)    |        64       |      50-90%      |
+   * |     DG1       |     DCAL        |   EGA (2x2)    |       128       |      0-50%      |
+   * |     DG2       |     DCAL        |   EGA (2x2)    |        64       |      50-90%      |
+   * |     EJ1       |     EMCAL       |   EJE (16x16)  |       255       |      0-90%      |
+   * |     DJ1       |     DCAL        |   EJE (8x8)    |       255       |      0-90%      |
+   *
+   * Centrality ranges observed in data.
+   *
+   * The trigger thresholds match the ones in https://twiki.cern.ch/twiki/bin/view/ALICE/EMCalTriggerOffline
+   */
+  void ConfigurePBPB2018();
+
+  /**
+   * @brief Trigger configuration for MC anchored to run2 Pb-Pb 5.02 TeV (2018)
+   *
+   * Configuration is representing all Level1 triggers available in the
+   * run2 data taking for Pb-Pb 5.02 TeV 2018. This configuration is for the
+   * simulation mode, correspondingly the trigger patch selection
+   * is applied on trigger patches calulated from FEE energies with energy
+   * smearing applied. The following table lists the trigger classes supported
+   * together with the corresponding settings:
+   *
+   * | Trigger class | Acceptance type |   Patch Type   | Threshold (GeV) | Centrality % |
+   * |---------------|-----------------|----------------|-----------------|-----------------|
+   * |     EG1       |     EMCAL       |   EGA (2x2)    |        10.0          |       0-50%      |
+   * |     EG2       |     EMCAL       |   EGA (2x2)    |        5.0            |      50-90%      |
+   * |     DG1       |     DCAL         |   EGA (2x2)    |        10.0           |      0-50%      |
+   * |     DG2       |     DCAL         |   EGA (2x2)    |        5.0             |      50-90%      |
+   * |     EJ1       |     EMCAL       |   EJE (16x16)  |        20.            |      0-90%      |
+   * |     DJ1       |     DCAL        |    EJE (8x8)      |        20.            |      0-90%      |
+   *
+   *   * Centrality ranges observed in data. Selection to be implemented in MC.
+   * The trigger thresholds are tuned to describe the data.
+   */
+  void ConfigureMCPBPB2018();
 
   /**
    * @brief Output stream operator
@@ -866,15 +965,20 @@ protected:
   Bool_t Is2013PPB(const char *dataset) const;
   Bool_t Is2013MCPPB(const char *dataset) const;
   Bool_t Is2015PP5TeV(const char *dataset) const;
+  Bool_t Is2015PBPB(const char *dataset) const;
+  Bool_t Is2015MCPBPB(const char *dataset) const;
   Bool_t Is2015MCPP5TeV(const char *dataset) const;
   Bool_t Is2016PPB5TeV(const char *dataset) const;
   Bool_t Is2016MCPPB5TeV(const char *dataset) const;
   Bool_t Is2016PPB8TeV(const char *dataset) const;
   Bool_t Is2016MCPPB8TeV(const char *dataset) const;
+  Bool_t Is2016MCPPB8TeVHighL0Threshold(const char *dataset) const;
   Bool_t Is2016PP(const char *dataset) const;
   Bool_t Is2016MCPP(const char *dataset) const;
   Bool_t Is2017PP5TeV(const char *dataset) const;
   Bool_t Is2017MCPP5TeV(const char *dataset) const;
+  Bool_t Is2018PBPB(const char *dataset) const;
+  Bool_t Is2018MCPBPB(const char *dataset) const;
   Bool_t IsSupportedMCSample(const char *period, std::vector<TString> &supportedProductions) const;
  
   AliEmcalTriggerSelectionCuts::AcceptanceType_t  DecodeAcceptanceString(const std::string &acceptancestring);

@@ -11,12 +11,15 @@ void AddTask_ConvCaloTree(
   TString   corrTaskSetting               = "",
   Int_t     enableExtMatchAndQA           = 0,
   Int_t     doSaveSurroundingTracks       = 1,        // 1: save track eta, phi and E on calo surface ; 2: Save all tracks px,py,py and eta,phi on calo
+  Int_t     doSaveJets                    = 0,        // 1: save jet eta, phi, pt ; 2: Same, but only store events with jets
   Bool_t    doSaveMCInfo                  = 0,
   Float_t   minTrackMomentum              = 0.3,
   Bool_t    enableTriggerOverlapRej       = kTRUE,
   TString   settingMaxFacPtHard           = "3.",       // maximum factor between hardest jet and ptHard generated
-  Bool_t    useClusterIsolation           = kTRUE       // if isolation shoul be used
-  ){
+  Bool_t    useClusterIsolation           = kTRUE,       // if isolation shoul be used
+  Int_t     saveConversionCutInfo         = 2,           // 1 for std. conversions (only momenta will be stored), 2 for extended QA studies
+  Bool_t    enableElecDeDxPostCalibration = kFALSE
+){
 
 
 
@@ -127,6 +130,22 @@ void AddTask_ConvCaloTree(
     analysisConversionCuts->SetV0ReaderName(V0ReaderName);
     analysisConversionCuts->InitializeCutsFromCutString(TaskConversionCutnumber.Data());
     analysisConversionCuts->SetFillCutHistograms("");
+
+    TString fileNamedEdxPostCalib = ""; // to be implemented
+    if (enableElecDeDxPostCalibration){
+      if (isMC == 0){
+        if(fileNamedEdxPostCalib.CompareTo("") != 0){
+          analysisConversionCuts->SetElecDeDxPostCalibrationCustomFile(fileNamedEdxPostCalib);
+          cout << "Setting custom dEdx recalibration file: " << fileNamedEdxPostCalib.Data() << endl;
+        }
+        analysisConversionCuts->SetDoElecDeDxPostCalibration(enableElecDeDxPostCalibration);
+        cout << "Enabled TPC dEdx recalibration." << endl;
+      } else{
+        cout << "ERROR enableElecDeDxPostCalibration set to True even if MC file. Automatically reset to 0"<< endl;
+        analysisConversionCuts->SetDoElecDeDxPostCalibration(kFALSE);
+      }
+    }
+
   }
 
   AliConversionMesonCuts *analysisMesonCuts = new AliConversionMesonCuts();
@@ -137,7 +156,7 @@ void AddTask_ConvCaloTree(
   AliAnalysisTaskConvCaloTree *fConvCaloTree = new AliAnalysisTaskConvCaloTree(Form("%s_%s_ConvCaloTree",TaskEventCutnumber.Data(),TaskEMCCutnumber.Data()));
 
   if(TaskEMCCutnumber.CompareTo("") != 0 || TaskPHOSCutnumber.CompareTo("") != 0 ) fConvCaloTree->SetSaveClusters(kTRUE);
-  if(TaskConversionCutnumber.CompareTo("") != 0 )fConvCaloTree->SetSaveConversions(kTRUE);
+  if(TaskConversionCutnumber.CompareTo("") != 0 )fConvCaloTree->SetSaveConversions(saveConversionCutInfo);
   fConvCaloTree->SetSaveTracks(doSaveSurroundingTracks);
 
   fConvCaloTree->SetEventCuts(analysisEventCuts,IsHeavyIon);
@@ -151,6 +170,7 @@ void AddTask_ConvCaloTree(
   if(isMC && doSaveMCInfo) fConvCaloTree->SetSaveMCInformation(kTRUE);
   fConvCaloTree->SetMinTrackPt(minTrackMomentum);
   fConvCaloTree->SetV0ReaderName(V0ReaderName);
+  fConvCaloTree->SetSaveJets(doSaveJets);
   mgr->AddTask(fConvCaloTree);
 
   //create AliCaloTrackMatcher instance, if there is none present

@@ -51,6 +51,10 @@ class AliFemtoDreamCollConfig : public TNamed {
     fkTandMultPtBinning = doIt;
   }
   ;
+  void SetkTandMultMCTrueBinning(bool doIt) {
+    fkTandMultMCTrueBinning = doIt;
+  }
+  ;
   void SetPtQA(bool doIt) {
     fPtQA = doIt;
   }
@@ -91,6 +95,10 @@ class AliFemtoDreamCollConfig : public TNamed {
   ;
   void SetAncestors(bool doIt) {
     fAncestors = doIt;
+  }
+  void SetpTOnepTTwokStarPlotsmT(bool doIt, float kStarCutOff) {
+    fpTOnepTTwokStarPlotsmT = doIt;
+    fpTOnepTTwokStarCut = kStarCutOff; 
   }
   void SetDomTMultBinning(bool doIt) {
     fmTMultBinning = doIt; 
@@ -158,6 +166,10 @@ class AliFemtoDreamCollConfig : public TNamed {
     return fkTandMultPtBinning;
   }
   ;
+  bool GetDokTandMultMCTrueBinning() {
+    return fkTandMultMCTrueBinning;
+  }
+  ;
   bool GetDoPtQA() {
     return fPtQA;
   }
@@ -186,6 +198,13 @@ class AliFemtoDreamCollConfig : public TNamed {
   ;
   bool GetDoAncestorsPlots() {
     return fAncestors;
+  }
+  bool GetDopTOnepTTwokStarPlotsmT() {
+    return fpTOnepTTwokStarPlotsmT;
+  }
+  ;
+  float GetDopTOnepTTwokStarCutOff() {
+    return fpTOnepTTwokStarCut;
   }
   ;
   AliFemtoDreamCollConfig::UncorrelatedMode GetControlMode() {
@@ -286,6 +305,12 @@ class AliFemtoDreamCollConfig : public TNamed {
   bool GetDoDeltaEtaDeltaPhiCut() const {
     return fDoDeltaEtaDeltaPhiCut;
   }
+  void RejectMotherDaughter(bool doIt){
+    fRejectMotherDaughter = doIt;
+  }
+  bool GetRejectMotherDaughter() const {
+    return fRejectMotherDaughter;
+  }
   void SetSummedPtCut(float limit1, float limit2){
     fSummedPtLimit1 = limit1;
     fSummedPtLimit2 = limit2;
@@ -308,6 +333,7 @@ class AliFemtoDreamCollConfig : public TNamed {
   bool fmTBinning;              //
   bool fkTandMultBinning;	//
   bool fkTandMultPtBinning;	//
+  bool fkTandMultMCTrueBinning;	//
   bool fPtQA;                   //
   bool fMassQA;                 //
   bool fMomentumResolution;     //
@@ -338,13 +364,16 @@ class AliFemtoDreamCollConfig : public TNamed {
   bool fmTMultBinning; //
   AliFemtoDreamEvent::MultEstimator fEst;  //
   bool fAncestors;              //
+  bool fpTOnepTTwokStarPlotsmT; //
+  float fpTOnepTTwokStarCut; //
   float fDeltaEtaMax;           //
   float fDeltaPhiMax;           //
   bool fDoDeltaEtaDeltaPhiCut;  //
+  bool fRejectMotherDaughter;   //
   bool fCoutVariables;
   float fSummedPtLimit1;
   float fSummedPtLimit2;
-  ClassDef(AliFemtoDreamCollConfig,17);
+  ClassDef(AliFemtoDreamCollConfig,21);
 };
 
 #endif /* ALIFEMTODREAMCOLLCONFIG_H_ */

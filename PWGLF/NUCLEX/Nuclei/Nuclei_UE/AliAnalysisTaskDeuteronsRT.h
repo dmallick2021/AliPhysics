@@ -41,7 +41,7 @@ public:
     void SetMultiplicityInterval   (Double_t multMin, Double_t multMax) { fMultMin = multMin; fMultMax = multMax; }
     void SetAverageTransverseMult  (Double_t average_Nch_Transv)        { fAverage_Nch_Transv = average_Nch_Transv; }
     void SetAnalysisParametersSyst (TH2F *h2Dmatrix)                    { hAnalysisParameters = h2Dmatrix; }
-    void SetInputData              (Bool_t isMC)                        { fIsMC = isMC; }
+    void SetInputData              (Bool_t ispPb, Bool_t isMC)          { fIspPb = ispPb; fIsMC = isMC; }
     void SetMinPtLeadingTrack      (Double_t pt)                        { fPt_min_leading = pt; }
     void SetIsUEAnalysis           (Bool_t isUEanalysis)                { fIsUEanalysis = isUEanalysis; }
 
@@ -54,11 +54,13 @@ public:
     Bool_t   GetESDEvent ();
     Bool_t   GetMCEvent ();
     Int_t    GetLeadingTrack();
-    void     FillHistograms_StandardCuts         (Int_t mult_Transverse, Int_t leading_track_ID, AliESDtrack *track);
-    void     FillHistograms_Systematics          (Int_t mult_Transverse, Int_t leading_track_ID, AliESDtrack *track, Int_t isyst);
-    void     FillHistograms_StandardCuts_Sim     (AliESDtrack *track);
-    void     FillHistograms_Systematics_Sim      (AliESDtrack *track, Int_t isyst);
-    void     FillHistograms_RapidityDependence   (AliESDtrack *track);
+    void     FillHistograms_StandardCuts                (Int_t mult_Transverse, Int_t leading_track_ID, AliESDtrack *track);
+    void     FillHistograms_Systematics                 (Int_t mult_Transverse, Int_t leading_track_ID, AliESDtrack *track, Int_t isyst);
+    void     FillHistograms_RapidityDependence          (AliESDtrack *track);
+    void     FillHistograms_StandardCuts_Sim            (AliESDtrack *track);
+    void     FillHistograms_Systematics_Sim             (AliESDtrack *track, Int_t isyst);
+    void     FillHistograms_Rapidity_Systematics        (AliESDtrack *track, Int_t isyst);
+    void     FillHistograms_Rapidity_Systematics_Sim    (AliESDtrack *track, Int_t isyst);
     Bool_t   PassedBasicTrackQualityCuts               (AliESDtrack *track);
     Bool_t   PassedBasicTrackQualityCuts_NoRapidityCut (AliESDtrack *track);
     Bool_t   PassedTrackQualityCuts_LeadingTrack       (AliESDtrack *track);
@@ -95,6 +97,7 @@ private:
     Double_t  fMultMax;//
     Double_t  fAverage_Nch_Transv;//
     TH2F     *hAnalysisParameters;//
+    Bool_t    fIspPb;//
     Bool_t    fIsMC;//
     Double_t  fPt_min_leading;//
     Bool_t    fIsUEanalysis;//
@@ -156,6 +159,12 @@ private:
     THnSparseF *hnsigmaTPC_antideuterons_rap;//!
     THnSparseF *hnsigmaTOF_deuterons_rap;//!
     THnSparseF *hnsigmaTOF_antideuterons_rap;//!
+    
+    //3-Dimensional Histograms for Deuterons vs. y
+    THnSparseF *hnsigmaTPC_deuterons_rap_Syst;//!
+    THnSparseF *hnsigmaTPC_antideuterons_rap_Syst;//!
+    THnSparseF *hnsigmaTOF_deuterons_rap_Syst;//!
+    THnSparseF *hnsigmaTOF_antideuterons_rap_Syst;//!
 
     //****************************************** MC ******************************************
     
@@ -180,12 +189,23 @@ private:
     TH2F *hnsigmaTPC_antideuterons_Rec_Syst;//!
     TH2F *hnsigmaTOF_deuterons_Rec_Syst;//!
     TH2F *hnsigmaTOF_antideuterons_Rec_Syst;//!
+
+    //Efficiency vs. Rapidity
+    TH2F *hGeneratedDeuterons_vs_Rapidity;//!
+    TH2F *hGeneratedAntiDeuterons_vs_Rapidity;//!
+    TH2F *hReconstructedDeuterons_TPC_vs_Rapidity;//!
+    TH2F *hReconstructedAntiDeuterons_TPC_vs_Rapidity;//!
+    TH2F *hReconstructedDeuterons_TOF_vs_Rapidity;//!
+    TH2F *hReconstructedAntiDeuterons_TOF_vs_Rapidity;//!
     
+    //Histograms for Syst. Uncertainties in Rapidity analysis
+    THnSparseF *hnsigmaTPC_deuterons_Rec_rap_Syst;//!
+    THnSparseF *hnsigmaTPC_antideuterons_Rec_rap_Syst;//!
+    THnSparseF *hnsigmaTOF_deuterons_Rec_rap_Syst;//!
+    THnSparseF *hnsigmaTOF_antideuterons_Rec_rap_Syst;//!
+
     //****************************************************************************************
 
-    
-    
-    
     
     AliAnalysisTaskDeuteronsRT(const AliAnalysisTaskDeuteronsRT&);
     AliAnalysisTaskDeuteronsRT& operator=(const AliAnalysisTaskDeuteronsRT&);

@@ -15,6 +15,7 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig()
       fmTBinning(false),
       fkTandMultBinning(false),
       fkTandMultPtBinning(false),
+      fkTandMultMCTrueBinning(false),
       fPtQA(false),
       fMassQA(false),
       fMomentumResolution(false),
@@ -45,9 +46,12 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig()
       fmTMultBinning(false),
       fEst(AliFemtoDreamEvent::kSPD),
       fAncestors(false),
+      fpTOnepTTwokStarPlotsmT(false),
+      fpTOnepTTwokStarCut(3.),
       fDeltaEtaMax(0.f),
       fDeltaPhiMax(0.f),
       fDoDeltaEtaDeltaPhiCut(false),
+      fRejectMotherDaughter(false),
       fCoutVariables(false),
       fSummedPtLimit1(0.0),
       fSummedPtLimit2(999.0) {
@@ -63,6 +67,7 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig(
       fmTBinning(config.fmTBinning),
       fkTandMultBinning(config.fkTandMultBinning),
       fkTandMultPtBinning(config.fkTandMultPtBinning),
+      fkTandMultMCTrueBinning(config.fkTandMultMCTrueBinning),
       fPtQA(config.fPtQA),
       fMassQA(config.fMassQA),
       fMomentumResolution(config.fMomentumResolution),
@@ -93,9 +98,12 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig(
       fmTMultBinning(config.fmTMultBinning),
       fEst(config.fEst),
       fAncestors(config.fAncestors),
+      fpTOnepTTwokStarPlotsmT(config.fpTOnepTTwokStarPlotsmT),
+      fpTOnepTTwokStarCut(config.fpTOnepTTwokStarCut),
       fDeltaEtaMax(config.fDeltaEtaMax),
       fDeltaPhiMax(config.fDeltaPhiMax),
       fDoDeltaEtaDeltaPhiCut(config.fDoDeltaEtaDeltaPhiCut),
+      fRejectMotherDaughter(config.fRejectMotherDaughter),
       fCoutVariables(config.fCoutVariables),
       fSummedPtLimit1(config.fSummedPtLimit1),
       fSummedPtLimit2(config.fSummedPtLimit2) {
@@ -111,6 +119,7 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig(const char *name,
       fmTBinning(false),
       fkTandMultBinning(false),
       fkTandMultPtBinning(false),
+      fkTandMultMCTrueBinning(false),
       fPtQA(false),
       fMassQA(false),
       fMomentumResolution(false),
@@ -141,9 +150,12 @@ AliFemtoDreamCollConfig::AliFemtoDreamCollConfig(const char *name,
       fmTMultBinning(false),
       fEst(AliFemtoDreamEvent::kSPD),
       fAncestors(false),
+      fpTOnepTTwokStarPlotsmT(false),
+      fpTOnepTTwokStarCut(3.),
       fDeltaEtaMax(0.f),
       fDeltaPhiMax(0.f),
       fDoDeltaEtaDeltaPhiCut(false),
+      fRejectMotherDaughter(false),
       fCoutVariables(QACouts),
       fSummedPtLimit1(0.0),
       fSummedPtLimit2(999.0) {
@@ -158,6 +170,7 @@ AliFemtoDreamCollConfig& AliFemtoDreamCollConfig::operator=(
     this->fmTBinning = config.fmTBinning;
     this->fkTandMultBinning = config.fkTandMultBinning;
     this->fkTandMultPtBinning = config.fkTandMultPtBinning;
+    this->fkTandMultMCTrueBinning = config.fkTandMultMCTrueBinning;
     this->fPtQA = config.fPtQA;
     this->fMassQA = config.fMassQA;
     this->fMomentumResolution = config.fMomentumResolution;
@@ -188,9 +201,12 @@ AliFemtoDreamCollConfig& AliFemtoDreamCollConfig::operator=(
     this->fmTMultBinning = config.fmTMultBinning; 
     this->fEst = config.fEst;
     this->fAncestors = config.fAncestors;
+    this->fpTOnepTTwokStarPlotsmT = config.fpTOnepTTwokStarPlotsmT;
+    this->fpTOnepTTwokStarCut = config.fpTOnepTTwokStarCut;
     this->fDeltaEtaMax = config.fDeltaEtaMax;
     this->fDeltaPhiMax = config.fDeltaPhiMax;
     this->fDoDeltaEtaDeltaPhiCut = config.fDoDeltaEtaDeltaPhiCut;
+    this->fRejectMotherDaughter = config.fRejectMotherDaughter;
     this->fCoutVariables = config.fCoutVariables;
     this->fSummedPtLimit1 = config.fSummedPtLimit1;
     this->fSummedPtLimit2 = config.fSummedPtLimit2;

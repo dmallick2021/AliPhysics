@@ -54,8 +54,11 @@
 #pragma link C++ class AliAnalysisTaskDielectronsPbPb_Data+;
 #pragma link C++ class AliAnalysisTaskDielectronsPbPb_Efficiency+;
 #pragma link C++ class AliAnalysisTaskeeCor+;
+#pragma link C++ class AliAnalysisTaskGammaPythia+;
 #pragma link C++ class AliAnalysisTaskMLTreeMaker+;
+#pragma link C++ class AliAnalysisTaskMLTreeMaker2018+;
 #pragma link C++ class AliAnalysisTaskMLTreeMakerEff+;
+#pragma link C++ class AliAnalysisTaskOmegaDielectron_AccEff+;
 #pragma link C++ class AliAnalysisTaskSimpleTreeMaker+;
 #pragma link C++ class AliAnalysisTask_JPsi_EMCal+;
 #pragma link C++ class AliDielectronReducedTrack+;
@@ -65,6 +68,7 @@
 #pragma link C++ class AliAnalysisTaskTGReducedTree+;
 #pragma link C++ class AliAnalysisTaskReducedTreeDS+;
 #pragma link C++ class AliAnalysisTaskLMeeCocktailMC+;
+#pragma link C++ class AliAnalysisTaskLMeePureMC+;
 #pragma link C++ class AliCocktailSmearing+;
 #pragma link C++ class AliAnalysisTaskCharm+;
 #pragma link C++ class AliAnalysisTaskBeauty+;

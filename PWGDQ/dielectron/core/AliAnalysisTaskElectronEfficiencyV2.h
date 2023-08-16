@@ -72,12 +72,7 @@ public:
    void   SetGeneratorName         (TString generatorName) { fGeneratorName = generatorName;}
    void   SetGeneratorMCSignalName (TString generatorName) { fGeneratorMCSignalName  = generatorName;}
    void   SetGeneratorULSSignalName(TString generatorName) { fGeneratorULSSignalName = generatorName;}
-
-   void   SetCheckGenID(Bool_t flag) { fCheckGenID = flag;}
-   void   SetGeneratorIndex         (std::vector<UInt_t> generatorIndex) { fGeneratorIndex = generatorIndex;}
-   void   SetGeneratorMCSignalIndex (std::vector<UInt_t> generatorIndex) { fGeneratorMCSignalIndex  = generatorIndex;}
-   void   SetGeneratorULSSignalIndex(std::vector<UInt_t> generatorIndex) { fGeneratorULSSignalIndex = generatorIndex;}
-
+   void SetRejectParticleFromOOB(Bool_t flag)             {fRejectParticleFromOOB = flag;}
 
    // Event setter
    void   SetEnablePhysicsSelection(Bool_t selectPhysics)   {fSelectPhysics = selectPhysics;}
@@ -99,11 +94,14 @@ public:
    void   SetResolutionFileFromAlien(std::string filename) {fResoFilenameFromAlien = filename; }
    void   SetResolutionFile(std::string filenamelocal,std::string filenamealien);
    void   SetSmearGenerated(bool setSmearingGen) { fDoGenSmearing = setSmearingGen; }
+   void   SetSmearReconstructed(bool setSmearingRec) { fDoRecSmearing = setSmearingRec; }
+   void   SetResolutionDeltaPtBins(std::vector<double> ResolutionDeltaPtBins)             {fResolutionDeltaPtBins = ResolutionDeltaPtBins;}
    void   SetResolutionDeltaPtBinsLinear (const double min, const double max, const unsigned int steps){SetBinsLinear("ptDelta_reso", min, max, steps);}
    void   SetResolutionRelPtBinsLinear   (const double min, const double max, const unsigned int steps){SetBinsLinear("ptRel_reso", min, max, steps);}
    void   SetResolutionEtaBinsLinear  (const double min, const double max, const unsigned int steps){SetBinsLinear("eta_reso", min, max, steps);}
    void   SetResolutionPhiBinsLinear  (const double min, const double max, const unsigned int steps){SetBinsLinear("phi_reso", min, max, steps);}
    void   SetResolutionThetaBinsLinear(const double min, const double max, const unsigned int steps){SetBinsLinear("theta_reso", min, max, steps);}
+   void   SetResolutionGenptBins(const double min, const double max, const unsigned int steps){fGenptMin = min; fGenptMax = max; fNGenpt = steps;}
 
    // single electron binning setter
    void   SetPtBins(std::vector<double> ptBins)             {fPtBins = ptBins;}
@@ -203,8 +201,7 @@ private:
   void    SetPIDResponse(AliPIDResponse *fPIDRespIn)        {fPIDResponse = fPIDRespIn;}
   void    CheckSingleLegMCsignals(std::vector<Bool_t>& vec, const int track);
   void    CheckPairMCsignals(std::vector<Bool_t>& vec, AliVParticle* part1, AliVParticle* part2);
-  bool    CheckGenerator(int trackID, std::vector<unsigned int> vecHashes);
-  bool    CheckGeneratorIndex(int trackID, std::vector<unsigned int> vecGenIDs);
+  bool    CheckGenerator(int trackID, std::vector<unsigned int> vecHashes, Bool_t isGen);
   void    CheckIfFromMotherWithDielectronAsDaughter(Particle& part);
   Bool_t  CheckIfOneIsTrue(std::vector<Bool_t>& vec);
 
@@ -268,6 +265,11 @@ private:
   std::vector<double> fPairPtBins;
   std::vector<double> fPhiVBins;
   bool fDoGenSmearing;
+  bool fDoRecSmearing;
+
+  int    fNGenpt;// pt binning for resolution map
+  double fGenptMin;// pt binning for resolution map
+  double fGenptMax;// pt binning for resolution map
 
   double  fPtMin; // Kinematic cut for pairing
   double  fPtMax; // Kinematic cut for pairing
@@ -295,11 +297,7 @@ private:
   std::vector<unsigned int> fGeneratorHashs;
   std::vector<unsigned int> fGeneratorMCSignalHashs;
   std::vector<unsigned int> fGeneratorULSSignalHashs;
-
-  Bool_t fCheckGenID;
-  std::vector<UInt_t> fGeneratorIndex;
-  std::vector<UInt_t> fGeneratorMCSignalIndex;
-  std::vector<UInt_t> fGeneratorULSSignalIndex;
+  Bool_t fRejectParticleFromOOB;
 
   AliPIDResponse* fPIDResponse;
   AliVEvent*      fEvent;
@@ -401,7 +399,7 @@ private:
   AliAnalysisTaskElectronEfficiencyV2(const AliAnalysisTaskElectronEfficiencyV2&); // not implemented
   AliAnalysisTaskElectronEfficiencyV2& operator=(const AliAnalysisTaskElectronEfficiencyV2&); // not implemented
 
-  ClassDef(AliAnalysisTaskElectronEfficiencyV2, 8);
+  ClassDef(AliAnalysisTaskElectronEfficiencyV2, 13);
 };
 
 

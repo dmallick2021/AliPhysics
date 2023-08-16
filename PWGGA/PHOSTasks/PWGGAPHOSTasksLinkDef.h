@@ -52,6 +52,9 @@
 //PHOS_EpRatio
 #pragma link C++ class AliAnalysisTaskEpRatio+;
 
+//PHOS_Fluctuations
+#pragma link C++ class AliAnalysisPHOSFluctuations+;
+
 //PHOS_PbPb_MC
 #pragma link C++ class AliPHOSHijingEfficiency+;
 
@@ -63,6 +66,7 @@
 // PHOS_Run2embedding
 #pragma link C++ class AliPHOSEmbeddingRun2+;
 #pragma link C++ class AliPHOSEventCounter+;
+#pragma link C++ class AliPHOSEmbedggHBT+;
 
 //PHOS_GAFlow
 #pragma link C++ class AliAnalysisTaskThermalGAFlow+;
@@ -145,4 +149,12 @@
 
 //Resonances
 #pragma link C++ class AliAnalysisPHOSResonances+ ;
+
+//Nbar
+#pragma link C++ class AliAnalysisSigmaBarCharged+ ;
+
+//Gamma
+#pragma link C++ class AliAnalysisTaskGammaPHOSPP+ ;
+#pragma link C++ class AliAnalysisTaskPHOSPbPbQARun2+;
+
 #endif

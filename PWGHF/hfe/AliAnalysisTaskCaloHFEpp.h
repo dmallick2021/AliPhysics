@@ -29,16 +29,17 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		virtual void            UserCreateOutputObjects();
 		virtual void            UserExec(Option_t* option);
 		virtual void            Terminate(Option_t* option);
-		virtual void            SelectPhotonicElectron(Int_t itrack, AliVTrack *track, Bool_t &fFlagPhotonicElec, Int_t iMC, Double_t TrkPt,Double_t DCAxy,Int_t Bsign, Bool_t &iIsocut);
+		virtual void            SelectPhotonicElectron(Int_t itrack, AliVTrack *track, Bool_t &fFlagPhotonicElec, Int_t iMC, Double_t TrkPt,Double_t DCAxy,Int_t Bsign, Bool_t &iIsocut, Bool_t &fLagZdecay);
 		virtual void            IsolationCut(Int_t itrack, AliVTrack *track, Double_t TrackPt, Double_t MatchPhi, Double_t MatchEta, Double_t MatchclE, Bool_t fFlagPhoto, Bool_t &fFlagIso, Bool_t fFlagB, Bool_t fFlagD, Double_t &IsoEnergy, Int_t &NcontCone);
 
 		virtual void            IsolationTrackBase(Int_t itrack, AliVTrack *track, Double_t MatchclE, Double_t &IsoEnergyTrack, Int_t &NtrackCone);
-		virtual void            CheckCorrelation(Int_t itrack, AliVTrack *track, Double_t TrackPt, Double_t Riso, Bool_t fFlagPhoto);
+		virtual void            CheckCorrelation(Int_t itrack, AliVTrack *track, Double_t TrackPt, Double_t Riso, Bool_t fFlagPhoto, Int_t iWevt);
 
-		virtual void            CheckMCgen(AliAODMCHeader* fMCheader,Double_t CutEta);
+		virtual void            CheckMCgen(AliAODMCHeader* fMCheader,Double_t CutEta, Int_t Nmult);
+		virtual void            CalNcharge(AliAODMCHeader* fMCheader,Double_t CutEta);
 		virtual void            GetMClevelWdecay(AliAODMCHeader* fMCheadera, Double_t CutEta);
 		virtual void            FindMother(AliAODMCParticle* part, int &label, int &pid, double &ptmom);
-		virtual void            FindWdecay(AliAODMCParticle* part, int &label, int &pid);
+		virtual void            FindWZdecay(AliAODMCParticle* part, int &label, int &pid, Double_t &Eta_Zee);
 		virtual void            SetEtaRange(Int_t etarange){fetarange = etarange;};
 
 		Bool_t                  GetEMCalTriggerEG1() { return fEMCEG1; };
@@ -48,9 +49,10 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		Bool_t                  IsPdecay(int mpid);
 		Bool_t                  IsDdecay(int mpid);
 		Bool_t                  IsBdecay(int mpid);
-		TProfile* 		GetEstimatorHistogram(TFile* fEstimator, const AliAODEvent *fAOD);
-		TProfile* 		GetEstimatorHistogramMC(TFile* fEstimator, const AliAODEvent *fAOD);
-		Double_t      GetCorrectedNtrackletsD(TProfile* estimatorAvg, Double_t uncorrectedNacc, Double_t vtxZ, Double_t refMult);
+		TProfile* 		GetEstimatorHistogram(TFile* fEstimator, const AliAODEvent *fAOD, Int_t mtype);
+		TProfile* 		GetEstimatorHistogramMC(TFile* fEstimator, const AliAODEvent *fAOD, Int_t mtype);
+		TH1D* 		        GetNtrkWeightMC(TFile* fEstimator, Int_t mtype);
+		Double_t                GetCorrectedNtrackletsD(TProfile* estimatorAvg, Double_t uncorrectedNacc, Double_t vtxZ, Double_t refMult);
 
 		void                    SetEG1(Bool_t flagEG1) { fEMCEG1= flagEG1;};
 		void                    SetEG2(Bool_t flagEG2) { fEMCEG2= flagEG2;};
@@ -64,7 +66,7 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		void                    SetTrackClust(Int_t TPC, Int_t ITS, Int_t Crossed) {NTPCClust = TPC, NITSClust = ITS, NCrossedRow = Crossed;};
 		void                    SetDCA(Double_t xy, Double_t z) {DCAxy = xy, DCAz = z;};
 		void                    SetNsigma(Double_t min, Double_t max) {NsigmaMin = min, NsigmaMax = max;};
-		void                    SetM20(Double_t min, Double_t max) {M20Min = min, M20Max = max;};
+		void                    SetM20(Double_t min, Double_t max) {M02Min = min, M02Max = max;};
 		void                    SetEop(Double_t min, Double_t max) {EopMin = min, EopMax = max;};
 		void                    SetConeR(Double_t coneR) {MaxConeR = coneR;};
 		void                    SetptAsso(Double_t ptassoMin) {ptAssoMin = ptassoMin;};
@@ -72,10 +74,15 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		void                    SetptCut(TString pte) {pTe = pte;};
 		void                    SetMassMin(Double_t MassMin) {massMin = MassMin;};
 		void                    SetNref(Double_t nref) {Nref = nref;};
+		void                    SetNrefV0(Double_t nrefV0) {NrefV0 = nrefV0;};
 		void                    SetMaxNtr(Double_t maxNtr) {MaxNtr = maxNtr;};
 		void                    SetMinNtr(Double_t minNtr) {MinNtr = minNtr;};
 		void                    SetEstimatorFile(TString filename) {festimatorFile = filename;}
-               
+		void                    SetMultType(Int_t mult_type) {fmult_type = mult_type;}
+                void                    SetIsolationCut_E(Double_t isoEcut){fisoEcut = isoEcut;}               
+                void                    SetIsolationCut_Tr(Int_t isoTrcut){fisoTrcut = isoTrcut;}               
+
+		void                    SetZeeAssCut(Bool_t fZeeAssPhiCut){fFlagZeeAssPhiCut = fZeeAssPhiCut;}
 
 		//void      SetWeightNtrkl(TH1D* hWeight){
 		//	if(fweightNtrkl) delete fweightNtrkl;
@@ -100,19 +107,28 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		Double_t NTPCClust, NITSClust, NCrossedRow;
 		Double_t DCAxy, DCAz;
 		Double_t NsigmaMin, NsigmaMax;
-		Double_t M20Min, M20Max;
+		Double_t M02Min, M02Max;
 		Double_t EopMin, EopMax;
 		Double_t MaxConeR;
 		Double_t ptAssoMin;
 		Double_t CutMimClE;
 		TString pTe;
 		Double_t massMin;
+                Double_t fisoEcut;
+                Int_t fisoTrcut;
+                Bool_t fFlagZeeAssPhiCut;
 		Double_t Nref;
+		Double_t NrefV0;
 		Int_t Nch;
 		Int_t MinNtr;
 		Int_t MaxNtr;
                 TString festimatorFile;
                 TProfile* estimatorAvg;
+                TProfile* estimatorV0Avg;
+		TString POWHEGweightFile;
+                TH1D *ZmassWeight;		
+                TH1D* NtrkWeightMC;
+                Int_t fmult_type;
 
 		//==== basic parameters ====
 		TH1F*                   fNevents;
@@ -155,6 +171,8 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		TH1F*                   fHist_trackPt;        //! dummy histogram
 		TH1F*                   fHistMatchPt;        
 		TH1F*                   fHistSelectPt;        
+		TH2F*                   fHistCheff0;        
+		TH2F*                   fHistCheff1;        
 		TH1F*                   fHist_ClustE;        //! dummy histogram
 		TH1F*                   fHist_SelectClustE;
 		TH1F*                   fHist_SelectClustE_time;
@@ -175,6 +193,19 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		TH2F*                   fInv_pT_ULS;
 		TH2F*                   fInv_pT_LS_forW;
 		TH2F*                   fInv_pT_ULS_forW;
+		TH2F*                   fInv_pT_LS_forZ;
+		TH2F*                   fInv_pT_LS_forZ_level;
+		TH2F*                   fInv_pT_LS_forZ_pos;
+		TH2F*                   fInv_pT_LS_forZ_neg;
+		TH2F*                   fInv_pT_ULS_forZ;
+		TH2F*                   fInv_pT_ULS_forZ_level;
+		TH2F*                   fInv_pT_ULS_forZ_pos;
+		TH2F*                   fInv_pT_ULS_forZ_pos_true;
+		TH2F*                   fInv_pT_ULS_forZ_pos_true_w;
+		TH2F*                   fInv_pT_ULS_forZ_neg;
+		TH2F*                   fInv_pT_ULS_forZ_neg_true;
+		TH2F*                   fInv_pT_ULS_forZ_neg_true_w;
+		TH2F*                   fHistZeeDphi;
 		TH1F*                   fHistPt_Inc;
 		TH1F*                   fHistPt_Iso;
 		TH2F*                   fHistPt_R_Iso;
@@ -183,15 +214,22 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		TH2F*                   fRiso_phidiff_35;
 		TH2F*                   fRiso_phidiff_LS_35;
 		THnSparseD*             fWh_phidiff;
+		THnSparseD*             fhad_phidiff;
 		THnSparseD*             fIsoArray;      
 		THnSparseD*             fHFArray;      
 		TH2F*                   fzvtx_Ntrkl;
 		TH2F*                   fzvtx_Nch;
+		TH2F*                   fzvtx_Ntrkl_V0;
 		TH2F*                   fzvtx_Ntrkl_Corr;
 		TH1F*                   fzvtx_Corr;
 		TH1F*                   fNtrkl_Corr;
+		TH1F*                   fNtrkl_noCorr;
+		TH2F*                   fzvtx_V0M;
+		TH2F*                   fcent_V0M;
+		TH2F*                   fcent_nAcc;
 		TH2F*                   fNchNtr;
 		TH2F*                   fNchNtr_Corr;
+		TH2F*                   fNchMC;
 		TH2F*                   fDCAxy_Pt_ele;
 		TH2F*                   fDCAxy_Pt_had;
 		TH2F*                   fDCAxy_Pt_LS;
@@ -256,12 +294,32 @@ class AliAnalysisTaskCaloHFEpp : public AliAnalysisTaskSE
 		TH1F*                   fHistWeOrg;
 		TH1F*                   fHistWeOrgPos;
 		TH1F*                   fHistWeOrgNeg;
+		TH1F*                   fHistZ_Org;
+		TH2F*                   fHistZeOrg;
+		TH2F*                   fHistZeOrgNeg;
+		TH2F*                   fHistZeOrgPos;
+		TH2F*                   fHistZeOrgNeg_w;
+		TH2F*                   fHistZeOrgPos_w;
+		TH1F*                   fHistZeRec0;
+		TH1F*                   fHistZeRec1;
+		TH2F*                   fHist_Zee_pT_pos;
+		TH2F*                   fHist_Zee_pT_neg;
+		TH2F*                   fHist_Zee_pT_neg2;
+		TH2F*                   fHist_Zpair_pos;
+		TH2F*                   fHist_Zpair_neg;
+		TH1F*                   fHistZrap;
+		TH1F*                   fHistZrap_ALICEacc;
+		TH1F*                   fHist_Zeta_pos;
+		TH1F*                   fHist_Zeta_neg;
+		TH1F*                   fHistZmassALICE_LS;
+		TH1F*                   fHistZmassALICE_ULS;
+		TH1F*                   fHistZmassALICE_org;
 
 		AliAnalysisTaskCaloHFEpp(const AliAnalysisTaskCaloHFEpp&); // not implemented
 		AliAnalysisTaskCaloHFEpp& operator=(const AliAnalysisTaskCaloHFEpp&); // not implemented
 		Int_t fetarange;
 		TProfile*		fMultEstimatorAvg;
-		//TH1D*       fweightNtrkl;
+		TH1D*       fweightNtrkl;
 
 
 		ClassDef(AliAnalysisTaskCaloHFEpp, 1);

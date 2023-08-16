@@ -32,12 +32,16 @@ AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::AliEmcalCorrectionCellTrack
   fEmipData(0.2356),
   fEmipMC(0.2824),
   fDoPropagation(0),
+  fDoMatchPrimaryOnly(0),
+  fMaxDistToVtxPrim(0),
+  fSubtractMultiple(0),
   fCellTrackMatchdEtadPhi(0),
   fCellTrackMatchdEtaDiff(0),
   fCellTrackMatchdPhiDiff(0),
   fCellNTrackMatch(0),
   fCellTrackMatchEbefore(0),
-  fCellTrackMatchEafter(0)
+  fCellTrackMatchEafter(0),
+  fHistoMatchingEfficiency(0)
 {
 }
 
@@ -59,6 +63,9 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::Initialize()
   GetProperty("EmipData", fEmipData);
   GetProperty("EmipMC", fEmipMC);
   GetProperty("DoPropagation", fDoPropagation);
+  GetProperty("MatchOnlyPrimaries", fDoMatchPrimaryOnly); // match only primaries in order to be able to fully reject conversions
+  GetProperty("MaxDistToVtxPrim", fMaxDistToVtxPrim);
+  GetProperty("SubtractMultiple", fSubtractMultiple);
 
   return kTRUE;
 }
@@ -73,18 +80,27 @@ void AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::UserCreateOutputObject
   if (fCreateHisto){
     fCellTrackMatchdEtadPhi = new TH2F("hCellTrackMatchdEtadPhi","hCellTrackMatchdEtadPhi",100,-0.04,0.04,100,-0.04,0.04);
     fOutput->Add(fCellTrackMatchdEtadPhi);
+
     if(fEsdMode || fDoPropagation){
       fCellTrackMatchdEtaDiff = new TH1D("hCellTrackMatchdEtaDiff","hCellTrackMatchdEtaDiff",100,-0.04,0.04);
       fOutput->Add(fCellTrackMatchdEtaDiff);
       fCellTrackMatchdPhiDiff = new TH1D("hCellTrackMatchdPhiDiff","hCellTrackMatchdPhiDiff",100,-0.04,0.04);
       fOutput->Add(fCellTrackMatchdPhiDiff);
     }
-    fCellNTrackMatch = new TH2F("hCellNTrackMatch","hCellNTrackMatch",3,-0.5,2.5,500,0,20);
+
+    fCellNTrackMatch = new TH2F("hCellNTrackMatch","hCellNTrackMatch",5,-0.5,4.5,500,0,20);
     fOutput->Add(fCellNTrackMatch);
     fCellTrackMatchEbefore = new TH1F("hCellTrackMatchEbefore","hCellTrackMatchEbefore",500,0,20);
     fOutput->Add(fCellTrackMatchEbefore);
     fCellTrackMatchEafter = new TH1F("hCellTrackMatchEafter","hCellTrackMatchEafter",500,0,20);
     fOutput->Add(fCellTrackMatchEafter);
+
+    fHistoMatchingEfficiency = new TH2F("HistoMatchingEfficiency","HistoMatchingEfficiency",2,-0.5,1.5,500, 0, 50);
+    fHistoMatchingEfficiency->GetXaxis()->SetBinLabel(1, "matched");
+    fHistoMatchingEfficiency->GetXaxis()->SetBinLabel(2, "not matched");
+    fHistoMatchingEfficiency->GetYaxis()->SetTitle("p_{T, track} (GeV/c)");
+    fOutput->Add(fHistoMatchingEfficiency);
+
   }
 
 
@@ -114,6 +130,17 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::Run()
     auto partItCont = partCont->accepted_momentum();
     for (AliParticleIterableMomentumContainer::iterator partIterator = partItCont.begin(); partIterator != partItCont.end(); ++partIterator) {
       track = static_cast<AliVTrack *>(partIterator->second);
+
+      if(fDoMatchPrimaryOnly){
+        Float_t bPos[2];
+        Float_t bCovPos[3];
+        track->GetImpactParameters(bPos,bCovPos);
+        Float_t dcaToVertexXYPos = bPos[0];
+        // Float_t dcaToVertexZPos  = bPos[1];
+        // radius has to be larger than 5 cm
+        if(dcaToVertexXYPos > fMaxDistToVtxPrim) continue;
+      }
+
       // only propagate tracks for ESDs. Take existing propagation for AODs or force propagation
       if(fEsdMode || fDoPropagation){
 
@@ -149,48 +176,20 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::Run()
       }
       //the preceding doesn't always match, because it returns an approximate location
       //so here we look around the track to double check the match
-      Double_t shiftEta;
-      Double_t shiftPhi;
+      Double_t shiftEta[3] = {-0.0132/2., 0., +0.0132/2.};
+      Double_t shiftPhi[3] = {-0.0132/2., 0., +0.0132/2.};
       if(!matched){
-        shiftEta = -0.0132/2.;
-        shiftPhi = -0.0132/2.;
-        for(Int_t i=0; i<3 ; i++){
-          fGeom->GetAbsCellIdFromEtaPhi(track->GetTrackEtaOnEMCal()+shiftEta,track->GetTrackPhiOnEMCal()+shiftPhi,CellID);
-          fGeom->EtaPhiFromIndex(CellID, cellEta, cellPhi);
-          if( abs(cellEta-track->GetTrackEtaOnEMCal())<matchWindow && abs(cellPhi-track->GetTrackPhiOnEMCal())<matchWindow ){
-            matchedCellID = CellID;
-            matched = kTRUE;
-            break;
+        for(Int_t iEta = 0; iEta < 3; iEta++){
+          for(Int_t iPhi = 0; iPhi < 3; iPhi++){
+            fGeom->GetAbsCellIdFromEtaPhi(track->GetTrackEtaOnEMCal()+shiftEta[iEta],track->GetTrackPhiOnEMCal()+shiftPhi[iPhi],CellID);
+            fGeom->EtaPhiFromIndex(CellID, cellEta, cellPhi);
+            if( abs(cellEta-track->GetTrackEtaOnEMCal())<matchWindow && abs(cellPhi-track->GetTrackPhiOnEMCal())<matchWindow ){
+              matchedCellID = CellID;
+              matched = kTRUE;
+              break;
+            }
           }
-          shiftPhi += 0.0132/2.;
-        }
-      }
-      if(!matched){
-        shiftEta = 0;
-        shiftPhi = -0.0132/2.;
-        for(Int_t i=0; i<3 ; i++){
-          fGeom->GetAbsCellIdFromEtaPhi(track->GetTrackEtaOnEMCal()+shiftEta,track->GetTrackPhiOnEMCal()+shiftPhi,CellID);
-          fGeom->EtaPhiFromIndex(CellID, cellEta, cellPhi);
-          if( abs(cellEta-track->GetTrackEtaOnEMCal())<matchWindow && abs(cellPhi-track->GetTrackPhiOnEMCal())<matchWindow ){
-            matchedCellID = CellID;
-            matched = kTRUE;
-            break;
-          }
-          shiftPhi += 0.0132/2.;
-        }
-      }
-      if(!matched){
-        shiftEta = 0.0132/2.;
-        shiftPhi = -0.0132/2.;
-        for(Int_t i=0; i<3 ; i++){
-          fGeom->GetAbsCellIdFromEtaPhi(track->GetTrackEtaOnEMCal()+shiftEta,track->GetTrackPhiOnEMCal()+shiftPhi,CellID);
-          fGeom->EtaPhiFromIndex(CellID, cellEta, cellPhi);
-          if( abs(cellEta-track->GetTrackEtaOnEMCal())<matchWindow && abs(cellPhi-track->GetTrackPhiOnEMCal())<matchWindow ){
-            matchedCellID = CellID;
-            matched = kTRUE;
-            break;
-          }
-          shiftPhi += 0.0132/2.;
+          if(matched) break;
         }
       }
       if(matched){
@@ -204,7 +203,22 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::Run()
         Bool_t cellHighGain = fCaloCells->GetHighGain(iCell);
         fCaloCells->GetCell(iCell, absId, ecell, tcell, mclabel, efrac);
         fGeom->EtaPhiFromIndex(absId, cellEta, cellPhi);
-        if (fCreateHisto) fCellNTrackMatch->Fill(0.,ecell);
+        if (fCreateHisto) {
+          fCellNTrackMatch->Fill(0.,ecell);
+
+          // calculate matching efficiency
+          // this is done on cell level. However, if track-hit is part of another cluster and the energy of another particle in this cell is high, it would count as not matched.
+          // Information of all particles in the cell is not available (only for the highest). ToDo: Is there a better way?
+          if(fMCEvent){
+            Int_t MCLabelCell = fCaloCells->GetMCLabel(iCell);
+            Int_t MCLabelTrack = track->GetLabel();
+            if(MCLabelCell == MCLabelTrack){
+              fHistoMatchingEfficiency->Fill(0., track->P());
+            } else {
+              fHistoMatchingEfficiency->Fill(1., track->P());
+            }
+          }
+        }
         if(ecell>0){
           if (fCreateHisto) {
             fCellTrackMatchdEtadPhi->Fill(cellEta-track->GetTrackEtaOnEMCal(),cellPhi-track->GetTrackPhiOnEMCal());
@@ -226,10 +240,28 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::Run()
               fCellTrackMatchEafter->Fill(ecell-fEmipMC);
             }
           } else {
-            fCaloCells->SetCell(iCell, absId, 0, tcell, mclabel, efrac, cellHighGain);
-            if (fCreateHisto){
-              fCellNTrackMatch->Fill(2.,ecell);
-              fCellTrackMatchEafter->Fill(0);
+            if(fSubtractMultiple){
+              double restEnergy = 0.;
+              if(fMCEvent){
+                restEnergy = fEmipMC - ecell;
+              }
+              else{
+                restEnergy = fEmipData - ecell;
+              }
+              fCaloCells->SetCell(iCell, absId, 0., tcell, mclabel, efrac, cellHighGain);
+              if (fCreateHisto){
+                fCellNTrackMatch->Fill(2.,ecell);
+                fCellTrackMatchEafter->Fill(0);
+              }
+              FindAndSubtractNextCell(absId, track, restEnergy);
+
+            }
+            else{
+              fCaloCells->SetCell(iCell, absId, 0, tcell, mclabel, efrac, cellHighGain);
+              if (fCreateHisto){
+                fCellNTrackMatch->Fill(2.,ecell);
+                fCellTrackMatchEafter->Fill(0);
+              }
             }
           }
         }
@@ -264,4 +296,100 @@ Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::IsTrackInEmcalAccept
   else {
     return kFALSE;
   }
+}
+
+
+
+Bool_t AliEmcalCorrectionCellTrackMatcherAndMIPSubtraction::FindAndSubtractNextCell(Int_t absID, AliVTrack* track, double restEnergy) const
+{
+  // get the phi direction of the track
+  Float_t dPhi = track->GetTrackPhiOnEMCal()-track->Phi();
+
+  // get the original cell that did not have enough energy
+  Int_t imod = -1, iphi =-1, ieta=-1,iTower = -1, iIphi = -1, iIeta = -1;
+  fGeom->GetCellIndex(absID,imod,iTower,iIphi,iIeta);
+  fGeom->GetCellPhiEtaIndexInSModule(imod,iTower,iIphi, iIeta,iphi,ieta);
+
+  // Get close cells (in phi only) index, energy and time, not in corners
+  Int_t absID1 = -1;
+  Int_t absID2 = -1;
+
+  if ( iphi < AliEMCALGeoParams::fgkEMCALRows-1) absID1 = fGeom->GetAbsCellIdFromCellIndexes(imod, iphi+1, ieta);
+  if ( iphi > 0 )                                absID2 = fGeom->GetAbsCellIdFromCellIndexes(imod, iphi-1, ieta);
+
+  Float_t ecell1 = 0, ecell2 = 0;
+
+  ecell1 = fCaloCells->GetCellAmplitude(absID1);
+  ecell2 = fCaloCells->GetCellAmplitude(absID2);
+
+  // if both next cells don't have energy do nothing, because we can not subtract energy from either
+  if( ecell1 <= 0 && ecell2 <= 0){
+    return false;
+  }
+
+  // Check phi direction between original cell and next cells
+  Float_t cellEta, cellPhi, cellEta1, cellEta2, cellPhi1, cellPhi2;
+  fGeom->EtaPhiFromIndex(absID, cellEta, cellPhi);
+  fGeom->EtaPhiFromIndex(absID1, cellEta1, cellPhi1);
+  fGeom->EtaPhiFromIndex(absID2, cellEta2, cellPhi2);
+
+  float dPhi1 = cellPhi1 - cellPhi;
+
+  Short_t  iCell = -1;
+  Short_t  absId  =-1;
+  Double_t ecell = 0;
+  Double_t tcell = 0;
+  Double_t efrac = 0;
+  Int_t  mclabel = -1;
+  Bool_t cellHighGain = kFALSE;
+
+
+  // try to go into the phi direction that the track points to.
+  // if cell in that direction has no energy, try in other direction.
+  if(signbit(dPhi) == signbit(dPhi1)){
+    if(ecell1 <= 0.){
+      if(ecell2 > 0.){
+        iCell = fCaloCells->GetCellPosition(absID2);
+      }
+      else{
+        return false;
+      }
+    }
+    else{
+      iCell = fCaloCells->GetCellPosition(absID1);
+    } 
+  }
+  else{
+    if(ecell2 <= 0.){
+      if(ecell2 > 0.){
+        iCell = fCaloCells->GetCellPosition(absID1);
+      }
+      else{
+        return false;
+      }
+    }
+    else{
+      iCell = fCaloCells->GetCellPosition(absID2);
+    }
+  }
+
+  cellHighGain = fCaloCells->GetHighGain(iCell);
+  fCaloCells->GetCell(iCell, absId, ecell, tcell, mclabel, efrac);
+
+  if(restEnergy > ecell){
+    fCaloCells->SetCell(iCell, absId, 0., tcell, mclabel, efrac, cellHighGain);
+    if (fCreateHisto){
+      fCellNTrackMatch->Fill(4.,ecell);
+      // fCellTrackMatchEafter->Fill(0);
+    }
+  }
+  else{
+    fCaloCells->SetCell(iCell, absId, ecell - restEnergy, tcell, mclabel, efrac, cellHighGain);
+    if (fCreateHisto){
+      fCellNTrackMatch->Fill(3.,ecell);
+      // fCellTrackMatchEafter->Fill(ecell - restEnergy);
+    }
+  }
+
+  return true;
 }

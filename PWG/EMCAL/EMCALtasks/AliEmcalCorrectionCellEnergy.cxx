@@ -30,12 +30,14 @@ AliEmcalCorrectionCellEnergy::AliEmcalCorrectionCellEnergy() :
   ,fUseNewRunDepTempCalib(0)
   ,fDisableTempCalib(0)
   ,fUseShaperCorrection(0)
-  ,fUseAdditionalScale(kFALSE)
-  ,fAdditionalScaleSM(0)
+  ,fUseDetermineLowGain(0)
+  ,fUseAdditionalScale(0)
+  ,fAdditionalScaleMode(1)
+  ,fAdditionalScaleSM({})
   ,fCustomRecalibFilePath("")
   ,fLoad1DRecalibFactors(0)
 {
-  for(unsigned int i = 0; i < 3; ++i){
+  for(unsigned int i = 0; i < 4; ++i){
     fAdditionalScaleSM.push_back(1); // set default values to 1
   }
 
@@ -69,8 +71,14 @@ Bool_t AliEmcalCorrectionCellEnergy::Initialize()
   // check the YAML configuration if the shaper nonlinearity correction is requested (default is false)
   GetProperty("enableShaperCorrection",fUseShaperCorrection);
 
-  // check the YAML configuration if an additional cell correction scale is requested (default is 1 -> no scale shift)
+  // check the YAML configuration if custom determination of LG/HG is requested (default is false)
+  GetProperty("enableLGDetermination",fUseDetermineLowGain);
+
+  // check the YAML configuration if an additional cell correction scale is requested
   GetProperty("enableAdditionalScale",fUseAdditionalScale);
+  
+  // check the YAML configuration which version of the additional scale should be used (default is 1)
+  GetProperty("additionalScaleMode", fAdditionalScaleMode);
 
   // check the YAML configuration for values for additional scale (default is 1 for each SM category )
   GetProperty("additionalScaleValuesSM",fAdditionalScaleSM);
@@ -268,6 +276,19 @@ Int_t AliEmcalCorrectionCellEnergy::InitRecalib()
       h->SetDirectory(0);
       fRecoUtils->SetEMCALChannelRecalibrationFactors(i,h);
     }
+  }
+  if(fUseDetermineLowGain){
+    
+    AliCDBManager *cdb = AliCDBManager::Instance();
+    if(!cdb)  AliFatal("Could not get CDB instance");
+    cdb->SetRun(runRC);
+
+    AliCDBEntry *entry = static_cast<AliCDBEntry*>(cdb->Get("EMCAL/Calib/Data"));
+    AliEMCALCalibData*  calib = NULL;
+    if (entry) calib =  static_cast<AliEMCALCalibData*>(entry->GetObject());
+    if (!calib) AliFatal("Calibration parameters not found in CDB!");
+    fRecoUtils->SetUseDetermineLowGain(kTRUE);
+    fRecoUtils->SetEMCALCalibData(calib);
   }
 
   return 1;
@@ -522,8 +543,8 @@ Bool_t AliEmcalCorrectionCellEnergy::CheckIfRunChanged()
 
   if(fUseAdditionalScale)
   {
-    fRecoUtils->SetUseTowerAdditionalScaleCorrection(kTRUE);
-    for(int i = 0; i < 3; ++i){
+    fRecoUtils->SetUseTowerAdditionalScaleCorrection(fAdditionalScaleMode);
+    for(int i = 0; i < 4; ++i){
       fRecoUtils->SetTowerAdditionalScaleCorrection(i, fAdditionalScaleSM[i]);
     }
   }

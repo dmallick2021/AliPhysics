@@ -4,7 +4,10 @@
 // Basic analysis task template for analysis jets storing information in both tree
 // branches and histograms
 
+
 #include <TH1F.h>
+#include <TH2F.h>
+#include <TH3F.h>
 #include <TTree.h>
 #include <TList.h>
 #include <AliAnalysisDataSlot.h>
@@ -22,6 +25,9 @@
 //My Header
 #include "AliAnalysisTaskJetCharge.h"
 
+//Globals
+using std::cout;
+using std::endl;
 
 
 
@@ -36,27 +42,16 @@ AliAnalysisTaskJetCharge::AliAnalysisTaskJetCharge() :
   fCentSelectOn(kTRUE),
   fCentMin(0),
   fCentMax(10),
-  fJetRadius(0.2),
+  fJetRadius(0),
   JetChargeK(0.5),
-  JetMidPt(40),
-  JetHighPt(80),
-
-  fhJetPt(0x0),
-  fhJetPhi(0x0),
-  fhJetEta(0x0),
-
-  fhJetCharge(0x0),
-  fhJetChargeLow(0x0),
-  fhJetChargeMid(0x0),
-  fhJetChargeHigh(0x0),
+  JetChargeMid(-999),
+  JetChargeHigh(-999),
 
 
   fTreeJets(0)
-  {
+{
 
-  }
-
-
+}
 
 //________________________________________________________________________
 AliAnalysisTaskJetCharge::AliAnalysisTaskJetCharge(const char *name) :
@@ -67,28 +62,18 @@ AliAnalysisTaskJetCharge::AliAnalysisTaskJetCharge(const char *name) :
   fCentSelectOn(kTRUE),
   fCentMin(0),
   fCentMax(10),
-  fJetRadius(0.2),
+  fJetRadius(0),
   JetChargeK(0.5),
-  JetMidPt(40),
-  JetHighPt(80),
+  JetChargeMid(-999),
+  JetChargeHigh(-999),
 
-  fhJetPt(0x0),
-  fhJetPhi(0x0),
-  fhJetEta(0x0),
 
-  fhJetCharge(0x0),
-  fhJetChargeLow(0x0),
-  fhJetChargeMid(0x0),
-  fhJetChargeHigh(0x0),
 
 
 
   fTreeJets(0)
 {
-  // Standard constructor.
-  for(Int_t i=0;i<nBranchesJetCharge;i++){
-    fTreeBranch[i]=0;
-  }
+
   SetMakeGeneralHistograms(kTRUE);
   DefineOutput(1, TList::Class());
   DefineOutput(2, TTree::Class());
@@ -104,10 +89,7 @@ AliAnalysisTaskJetCharge::~AliAnalysisTaskJetCharge()
  void AliAnalysisTaskJetCharge::UserCreateOutputObjects()
 {
   // Echo jet radius
-  Info("TaskJets","Using jet radius R=%f",fJetRadius);
-
-  //fEventCuts.SetManualMode(); ///Enable manual mode
-  //fEventCuts.SetupRun2pp();
+  //Info("TaskJets","Using jet radius R=%f",fJetRadius);
 
   // Create user output.
   AliAnalysisTaskEmcalJet::UserCreateOutputObjects();
@@ -118,47 +100,19 @@ AliAnalysisTaskJetCharge::~AliAnalysisTaskJetCharge()
   const char* nameoutput = GetOutputSlot(2)->GetContainer()->GetName();
   fTreeJets = new TTree(nameoutput, nameoutput);
   // Names for the branches
-  TString *fTreeBranchName = new TString [nBranchesJetCharge];
 
   // Name the branches of your TTree here
-  fTreeBranchName[0]  = "Pt";
-  fTreeBranchName[1]  = "Phi";
-  fTreeBranchName[2]  = "Eta";
 
-  fTreeBranchName[3]  = "JetCharge";
+  fTreeJets->Branch("Pt",&Pt,"Pt/F");
+  fTreeJets->Branch("Phi",&Phi,"Phi/F");
+  fTreeJets->Branch("Eta",&Eta,"Eta/F");
+  fTreeJets->Branch("JetCharge",&JetCharge,"JetCharge/F");
+  fTreeJets->Branch("JetChargeMid",&JetChargeMid,"JetChargeMid/F");
+  fTreeJets->Branch("JetChargeHigh",&JetChargeHigh,"JetChargeHigh/F");
 
-  fTreeBranchName[4]  = "JetChargeLow";
-  fTreeBranchName[5]  = "JetChargeMid";
-  fTreeBranchName[6]  = "JetChargeHigh";
-
-
+  fTreeJets->Branch("LeadingTrackPt",&LeadingTrackPt,"LeadingTrackPt/F");
 
 
-  // Associate the branches
-  for(Int_t iBranch=0; iBranch < nBranchesJetCharge; iBranch++){
-    std::cout<<"looping over variables"<<std::endl;
-    fTreeJets->Branch(fTreeBranchName[iBranch].Data(), &fTreeBranch[iBranch], Form("%s/D", fTreeBranchName[iBranch].Data()));
-  }
-
-  // Define histograms
-  fhJetPt= new TH1F("fhJetPt", "Jet Pt",1500,-0.5,149.5 );
-  fOutput->Add(fhJetPt);
-  fhJetPhi= new TH1F("fhJetPhi", "Jet Phi",360 , -1.5*(TMath::Pi()), 1.5*(TMath::Pi()));
-  fOutput->Add(fhJetPhi);
-  fhJetEta= new TH1F("fhJetEta", "Jet Eta",100,-2,2);
-  fOutput->Add(fhJetEta);
-
-  fhJetCharge= new TH1F("fhJetCharge", "Jet Charge", 20, -1.6, 1.6);
-  fOutput->Add(fhJetCharge);
-
-  fhJetChargeLow= new TH1F("fhJetChargeLow", "Jet Charge", 20, -1.6, 1.6);
-  fOutput->Add(fhJetChargeLow);
-
-  fhJetChargeMid= new TH1F("fhJetChargeMid", "Jet Charge", 20, -1.6, 1.6);
-  fOutput->Add(fhJetChargeMid);
-
-  fhJetChargeHigh= new TH1F("fhJetChargeHigh", "Jet Charge", 20, -1.6, 1.6);
-  fOutput->Add(fhJetChargeHigh);
 
 
   // Make sure that the outputs get written out
@@ -174,6 +128,7 @@ Bool_t AliAnalysisTaskJetCharge::Run()
 
 
 
+
   return kTRUE;
 }
 
@@ -186,29 +141,44 @@ Bool_t AliAnalysisTaskJetCharge::FillHistograms()
       return 0;
   }
 
+  // Reset the Tree Parameters
+  Pt = 0;
+  Phi = 0;
+  Eta = 0;
+  JetCharge = 0;
+  JetChargeMid = 0;
+  JetChargeHigh = 0;
+  LeadingTrackPt = 0;
 
+  // Initialise jet pointer
+  //cout << "Running Fill Histograms" << endl;
   AliEmcalJet *Jet1 = NULL; //Original Jet in the event                                                                                                         // Get jet container (0 = ?)
   AliJetContainer *JetCont= GetJetContainer(0); //Jet Container for event
-  Double_t JetPhi=0;
-  Double_t JetPt_ForThreshold=0;
+  Int_t nAcceptedJets = JetCont->GetNAcceptedJets();
+
+  //TClonesArray *trackArr = dynamic_cast<TClonesArray*>(InputEvent()->FindListObject("HybridTracks"));
+  Float_t JetPhi=0;
+  Float_t JetPt_ForThreshold=0;
+
   if(JetCont) {
     // Technical detail; fix possibly corrupted jet container ID
-    JetCont->ResetCurrentID();
     // Jet is acceptable?
-    while((Jet1=JetCont->GetNextAcceptJet())) {
+    for (auto Jet1 : JetCont->accepted())
+    {
+
       if(!Jet1)
+      {
+
         continue;
-
-
-      // Get the jet constituents
-
+      }
 
 
       AliParticleContainer *fTrackCont = JetCont->GetParticleContainer();
       UInt_t nJetConstituents = Jet1->GetNumberOfTracks();
 
-      //cout << nTest << "::::" << nMCConstituents << "::::" << nJetConstituents << endl;
 
+
+      //cout << nTest << "::::" << nMCConstituents << "::::" << nJetConstituents << endl;
 
 
       // Must have at least two constituents
@@ -216,82 +186,99 @@ Bool_t AliAnalysisTaskJetCharge::FillHistograms()
       {
         continue;
       }
-      // Check if Pt is above the Momentum
-        JetPt_ForThreshold = Jet1->Pt();
+
+
+      JetPt_ForThreshold = Jet1->Pt();
 
       if(JetPt_ForThreshold<fPtThreshold)
       {
+
         continue;
       }
-        //Check for leading track Pt to reduce cominatorial jets.
+      else
+      {
+
+        //Check the jet leading track is Greater than 5 GeV to reduce cominatorial jets
 
         if(Jet1->GetLeadingTrack()->Pt() < 5)
         {
-
             continue;
-            //std::cout << "LEADING TRACK TO SMALL!!!" << std::endl;
         }
 
-        // Filling the histograms here
-        Double_t JetPt = 0;
-          JetPt = Jet1->Pt();
-          fTreeBranch[0]= Jet1->Pt();
-          fhJetPt->Fill(JetPt);
+        LeadingTrackPt = Jet1->GetLeadingTrack()->Pt();
 
-          JetPhi = Jet1->Phi();
+
+          // Filling the Tree here
+
+          JetPhi=Jet1->Phi();
           if(JetPhi < -1*TMath::Pi())
             JetPhi += (2*TMath::Pi());
           else if (JetPhi > TMath::Pi())
             JetPhi -= (2*TMath::Pi());
 
-          fTreeBranch[1]=JetPhi;
-          fhJetPhi->Fill(JetPhi);
-          fTreeBranch[2]=Jet1->Eta();
-          fhJetEta->Fill(Jet1->Eta());
+          // Filling the TTree branches here
+          Pt          = Jet1->Pt();
+          Phi         = JetPhi;
+          Eta         = Jet1->Eta();
 
-          Double_t jetCharge = 0;
+
+          // Now Caluclate the jet Charge
+          Float_t jetCharge = 0;
+          Float_t MidjetCharge = 0;
+          Float_t HighjetCharge = 0;
+
+          double_t DetMidPt = 0;
+          double_t DetHighPt = 0;
+          Int_t MidCount = 0;
+          Int_t HighCount = 0;
 
           // Loop over the consituents
           for (UInt_t iJetConst = 0; iJetConst < nJetConstituents; iJetConst++ )
           {
-            AliVParticle *fJetConst = Jet1->Track(iJetConst);
-
-            //Looping over the Mc Particles to find the matching particle.
-
-            jetCharge += fJetConst->Charge()*pow(fJetConst->Pt(),JetChargeK);
-
-          }
-
-          jetCharge/=pow(Jet1->Pt(),JetChargeK);
-
-          fTreeBranch[3] = jetCharge;
-          fhJetCharge->Fill(jetCharge);
-
-          if(JetPt < JetMidPt)
-          {
-            fTreeBranch[4] = jetCharge;
-            fhJetChargeLow->Fill(jetCharge);
-          }
-          else if( JetPt > JetMidPt && JetPt < JetHighPt)
-          {
-            fTreeBranch[5] = jetCharge;
-            fhJetChargeMid->Fill(jetCharge);
-          }
-          else
-          {
-            fTreeBranch[6] = jetCharge;
-            fhJetChargeHigh->Fill(jetCharge);
+            AliVParticle *JetParticle = Jet1->Track(iJetConst);
+            jetCharge += JetParticle->Charge()*pow(JetParticle->Pt(),JetChargeK);
+            if(JetParticle->Pt() > 0.8)
+            {
+              MidjetCharge += JetParticle->Charge()*pow(abs(JetParticle->Pt()),JetChargeK);
+              DetMidPt += JetParticle->Pt();
+              MidCount += 1;
+            }
+            if(JetParticle->Pt() > 3.0)
+            {
+              HighjetCharge += JetParticle->Charge()*pow(abs(JetParticle->Pt()),JetChargeK);
+              DetHighPt += JetParticle->Pt();
+              HighCount += 1;
+            }
           }
 
 
 
 
+        // Normalise the Non Flavoured Jet CHarge
+        jetCharge/=pow(Jet1->Pt(),0.5);
+        MidjetCharge/=pow(DetMidPt,JetChargeK);
+        HighjetCharge/=pow(DetHighPt,JetChargeK);
 
-          fTreeJets->Fill();
+        //insure that the particle count is greater than 1 otherwise sets the final value to 0
+        if(MidCount < 2)
+        {
+          MidjetCharge = 0;
+        }
+        if(HighCount < 2)
+        {
+          HighjetCharge = 0;
+        }     
+
+        //Put The Jet Charge in the right place
+        JetCharge = jetCharge;
+        JetChargeMid = MidjetCharge;
+        JetChargeHigh = HighjetCharge;
 
 
 
-        //cout << "End of Jet" << endl;
+        fTreeJets->Fill();
+
+      }
 
     }
   }
@@ -317,7 +304,7 @@ void AliAnalysisTaskJetCharge::Terminate(Option_t *)
 {
   // Called once at the end of the analysis.
 
+
   // Normalise historgrams over number of Jets considered
-  //fhJetCharge->Scale(1/fhJetCharge->GetEntries()*fhJetCharge->GetXaxis()->GetBinWidth(1));
 
 }

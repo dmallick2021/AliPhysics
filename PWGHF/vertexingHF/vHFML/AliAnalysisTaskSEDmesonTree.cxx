@@ -1,12 +1,14 @@
-/* Copyright(c) 1998-2020, ALICE Experiment at CERN, All rights reserved. *
+/* Copyright(c) 1998-2021, ALICE Experiment at CERN, All rights reserved. *
  * See cxx source for full Copyright notice                               */
 
 //*************************************************************************
 // \class AliAnalysisTaskSEDmesonTree
-// \brief Analysis task to produce trees of Lc candidates for ML analyses of non-prompt Lc
+// \brief Analysis task to produce trees of D-meson candidates for ML analyses
 // \authors:
 // F. Grosa, fabrizio.grosa@cern.ch
 /////////////////////////////////////////////////////////////
+
+#include "yaml-cpp/yaml.h"
 
 #include <TRandom3.h>
 
@@ -29,6 +31,7 @@
 #include "AliAODMCParticle.h"
 #include "AliAnalysisManager.h"
 #include "AliMultSelection.h"
+#include "AliAnalysisTaskSECharmHadronMLSelector.h"
 
 #include "AliAnalysisTaskSEDmesonTree.h"
 
@@ -147,6 +150,13 @@ void AliAnalysisTaskSEDmesonTree::UserCreateOutputObjects()
     fHistNEvents->SetMinimum(0);
     fOutput->Add(fHistNEvents);
 
+    fSPDMultVsCent = new TH2F("hSPDMultVsCent", "Tracklets multiplicity vs. centrality; Centrality (%); Tracklets", 100, 0., 100., 201, -0.5, 200.5);
+    fSPDMultVsCentCand = new TH2F("hSPDMultVsCentCand", "Tracklets multiplicity vs. centrality; Centrality (%); Tracklets", 100, 0., 100., 201, -0.5, 200.5);
+    fSPDMultVsCentCandInMass = new TH2F("hSPDMultVsCentCandInMass", "Tracklets multiplicity vs. centrality; Centrality (%); Tracklets", 100, 0., 100., 201, -0.5, 200.5);
+    fOutput->Add(fSPDMultVsCent);
+    fOutput->Add(fSPDMultVsCentCand);
+    fOutput->Add(fSPDMultVsCentCandInMass);
+
     // Sparses for efficiencies (only gen)
     if(fReadMC)
         CreateEffSparses();
@@ -158,22 +168,46 @@ void AliAnalysisTaskSEDmesonTree::UserCreateOutputObjects()
 
     //Loading of ML models
     if(fApplyML) {
-        switch (fDecChannel)
+        if(!fDependOnMLSelector)
         {
-            case kD0toKpi:
-                fMLResponse = new AliHFMLResponseD0toKpi("D0toKpiMLResponse", "D0toKpiMLResponse", fConfigPath.data());
-                break;
-            case kDplustoKpipi:
-                fMLResponse = new AliHFMLResponseDplustoKpipi("DplustoKpipiMLResponse", "DplustoKpipiMLResponse", fConfigPath.data());
-                break;
-            case kDstartoD0pi:
-                fMLResponse = new AliHFMLResponseDstartoD0pi("DstartoD0piMLResponse", "DstartoD0piMLResponse", fConfigPath.data());
-                break;
+            switch (fDecChannel)
+            {
+                case kD0toKpi:
+                    fMLResponse = new AliHFMLResponseD0toKpi("D0toKpiMLResponse", "D0toKpiMLResponse", fConfigPath.data());
+                    break;
+                case kDplustoKpipi:
+                    fMLResponse = new AliHFMLResponseDplustoKpipi("DplustoKpipiMLResponse", "DplustoKpipiMLResponse", fConfigPath.data());
+                    break;
+                case kDstartoD0pi:
+                    fMLResponse = new AliHFMLResponseDstartoD0pi("DstartoD0piMLResponse", "DstartoD0piMLResponse", fConfigPath.data());
+                    break;
+            }
+            fMLResponse->MLResponseInit();
         }
-        fMLResponse->MLResponseInit();
+        else {
+            std::string configLocalPath = AliMLModelHandler::ImportFile(fConfigPath.data());
+            YAML::Node nodeList;
+            try
+            {
+                nodeList = YAML::LoadFile(configLocalPath);
+            }
+            catch (std::exception &e)
+            {
+                AliFatal(Form("Yaml-ccp error: %s! Exit", e.what()));
+            }
+            fPtLimsML = nodeList["BINS"].as<vector<float> >();
 
-        CreateRecoSparses();
+            for (const auto &model : nodeList["MODELS"])
+            {
+                fMLScoreCuts.push_back(model["cut"].as<std::vector<double> >());
+                fMLOptScoreCuts.push_back(model["cut_opt"].as<std::vector<std::string> >());
+            }
+        }
     }
+
+    //Sparses for reco candidates
+    if(fApplyML || fFillSparsePreSelOnly)
+        CreateRecoSparses();
 
     //Create ML tree
     if (fCreateMLtree)
@@ -243,6 +277,7 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
     }
 
     TClonesArray *arrayCand = nullptr;
+    TClonesArray *arrayCandDDau = nullptr;
     if (!fAOD && AODEvent() && IsStandardAOD())
     {
         // In case there is an AOD handler writing a standard AOD, use the AOD
@@ -258,13 +293,14 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
             switch (fDecChannel)
             {
                 case kD0toKpi:
-                    arrayCand = dynamic_cast<TClonesArray *>(aodFromExt->GetList()->FindObject("Charm2Prong"));
+                    arrayCand = dynamic_cast<TClonesArray *>(aodFromExt->GetList()->FindObject("D0toKpi"));
                     break;
                 case kDplustoKpipi:
                     arrayCand = dynamic_cast<TClonesArray *>(aodFromExt->GetList()->FindObject("Charm3Prong"));
                     break;
                 case kDstartoD0pi:
                     arrayCand = dynamic_cast<TClonesArray *>(aodFromExt->GetList()->FindObject("Dstar"));
+                    arrayCandDDau = dynamic_cast<TClonesArray *>(aodFromExt->GetList()->FindObject("D0toKpi"));
                     break;
             }
         }
@@ -274,18 +310,19 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
         switch (fDecChannel)
         {
             case kD0toKpi:
-                arrayCand = dynamic_cast<TClonesArray *>(fAOD->GetList()->FindObject("Charm2Prong"));
+                arrayCand = dynamic_cast<TClonesArray *>(fAOD->GetList()->FindObject("D0toKpi"));
                 break;
             case kDplustoKpipi:
                 arrayCand = dynamic_cast<TClonesArray *>(fAOD->GetList()->FindObject("Charm3Prong"));
                 break;
             case kDstartoD0pi:
                 arrayCand = dynamic_cast<TClonesArray *>(fAOD->GetList()->FindObject("Dstar"));
+                arrayCandDDau = dynamic_cast<TClonesArray *>(fAOD->GetList()->FindObject("D0toKpi"));
                 break;
         }
     }
 
-    if (!fAOD || !arrayCand)
+    if (!fAOD || !arrayCand || (fDecChannel == kDstartoD0pi && !arrayCandDDau))
     {
         AliError("Candidate branch not found!\n");
         PostData(1, fOutput);
@@ -321,6 +358,12 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
 
     TClonesArray *arrayMC = nullptr;
     AliAODMCHeader *mcHeader = nullptr;
+    int Ntracklets = AliVertexingHFUtils::GetNumberOfTrackletsInEtaRange(fAOD, -1., 1.);
+
+    double centrality = -999.;
+    AliMultSelection *multSelection = dynamic_cast<AliMultSelection*>(fAOD->FindListObject("MultSelection"));
+    if(multSelection)
+        centrality = multSelection->GetMultiplicityPercentile(fCentEstimator.data());
 
     // load MC particles
     if (fReadMC)
@@ -343,7 +386,7 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
         }
 
         // fill MC acceptance histos
-        FillMCGenAccHistos(arrayMC, mcHeader);
+        FillMCGenAccHistos(arrayMC, mcHeader, Ntracklets);
     }
 
     if (!isEvSel)
@@ -353,31 +396,71 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
     }
 
     fHistNEvents->Fill(4); // accepted event
+    fSPDMultVsCent->Fill(centrality, Ntracklets);
+
+    // check if the train includes the common ML selector for the given charm-hadron species
+    AliAnalysisTaskSECharmHadronMLSelector *taskMLSelect = nullptr;
+    std::vector<int> chHadIdx{};
+    std::vector<std::vector<double> > scoresFromMLSelector{}, scoresFromMLSelectorSecond{};
+    if(fDependOnMLSelector) 
+    {
+        taskMLSelect = dynamic_cast<AliAnalysisTaskSECharmHadronMLSelector*>(AliAnalysisManager::GetAnalysisManager()->GetTask(fMLSelectorName.data()));
+        if(!taskMLSelect)
+        {
+            AliFatal("ML Selector not present in train and ML models not compiled!");
+            return;
+        }
+        chHadIdx = taskMLSelect->GetSelectedCandidates();
+        scoresFromMLSelector = taskMLSelect->GetMLSCores();
+        scoresFromMLSelectorSecond = taskMLSelect->GetMLSCoresSecond();
+    }
+    else
+    {
+        for (int iCand = 0; iCand < arrayCand->GetEntriesFast(); iCand++)
+            chHadIdx.push_back(iCand);
+    }
 
     // vHF object is needed to call the method that refills the missing info of the candidates
     // if they have been deleted in dAOD reconstruction phase
     // in order to reduce the size of the file
     AliAnalysisVertexingHF vHF = AliAnalysisVertexingHF();
+    int nSelected = 0, nSelectedInMass = 0;
 
-    for (int iCand = 0; iCand < arrayCand->GetEntriesFast(); iCand++)
+    for (size_t iCand = 0; iCand < chHadIdx.size(); iCand++)
     {
-        AliAODRecoDecayHF *dMeson = dynamic_cast<AliAODRecoDecayHF *>(arrayCand->UncheckedAt(iCand));
+        AliAODRecoDecayHF *dMeson = dynamic_cast<AliAODRecoDecayHF *>(arrayCand->UncheckedAt(chHadIdx[iCand]));
+        AliAODRecoDecayHF *dMesonWithVtx;
+        if(fDecChannel == kDstartoD0pi)
+        {
+            if(dMeson->GetIsFilled()<1)
+                dMesonWithVtx = dynamic_cast<AliAODRecoDecayHF *>(arrayCandDDau->UncheckedAt(dMeson->GetProngID(1)));
+            else
+                dMesonWithVtx = dynamic_cast<AliAODRecoCascadeHF *>(dMeson)->Get2Prong();
+        }
+        else
+            dMesonWithVtx = dMeson;
 
         bool unsetVtx = false;
         bool recVtx = false;
         AliAODVertex *origOwnVtx = nullptr;
 
-        int isSelected = IsCandidateSelected(dMeson, &vHF, unsetVtx, recVtx, origOwnVtx);
+        bool isInSignalRegion = false;
+        int isSelected = IsCandidateSelected(dMeson, dMesonWithVtx, &vHF, unsetVtx, recVtx, origOwnVtx, isInSignalRegion);
         if (!isSelected)
         {
             if (unsetVtx)
-                dMeson->UnsetOwnPrimaryVtx();
+                dMesonWithVtx->UnsetOwnPrimaryVtx();
             if (recVtx)
-                fRDCuts->CleanOwnPrimaryVtx(dMeson, fAOD, origOwnVtx);
+                fRDCuts->CleanOwnPrimaryVtx(dMesonWithVtx, fAOD, origOwnVtx);
             continue;
         }
 
         fHistNEvents->Fill(13); // candidate selected
+        if(!(fApplyML || fFillSparsePreSelOnly)) {
+            nSelected++;
+            if(isInSignalRegion)
+                nSelectedInMass++;
+        }
 
         // get MC truth
         AliAODMCParticle *partD = nullptr;
@@ -447,7 +530,7 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                     {
                         if (labD >= 0)
                         {
-                            if (pdgCode0 == 211)
+                            if (pdgCode0 == 321)
                                 isRefl = true;
                             if (orig == 4)
                                 isPrompt = true;
@@ -481,7 +564,7 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                     {
                         if (labD >= 0)
                         {
-                            if (pdgCode0 == 321)
+                            if (pdgCode0 == 211)
                                 isRefl = true;
                             if (orig == 4)
                                 isPrompt = true;
@@ -503,7 +586,7 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                     if (okSetVar && !(fReadMC && !isSignal && !isBkg && !isPrompt && !isFD && !isRefl)) // add tag in tree handler for signal from pileup events?
                         fMLhandler->FillTree();
                 }
-                break;
+                continue;
             }
             else
             {
@@ -536,26 +619,49 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                 bool okSetVar = fMLhandler->SetVariables(dMeson, fAOD->GetMagneticField(), 0, pidHF);
                 if (okSetVar && !(fReadMC && !isSignal && !isBkg && !isPrompt && !isFD && !isRefl)) // add tag in tree handler for signal from pileup events?
                     fMLhandler->FillTree();
-                break;
+                continue;
             }
         }
 
-        if(fApplyML)
+        if(fApplyML || fFillSparsePreSelOnly)
         {
             //variables for ML application
             std::vector<double> modelPred = {};
             bool isMLsel = false;
             double ptCand = dMeson->Pt();
-            double centrality = -999.;
-            AliMultSelection *multSelection = dynamic_cast<AliMultSelection*>(fAOD->FindListObject("MultSelection"));
-            if(multSelection)
-                centrality = multSelection->GetMultiplicityPercentile(fCentEstimator.data());
+            double y = dMeson->Y(fPdgD);
+            double phi = dMeson->Phi();
 
             if((fDecChannel == kD0toKpi && (isSelected == 1 || isSelected == 3)) || fDecChannel == kDplustoKpipi || fDecChannel == kDstartoD0pi)
             {
-                isMLsel = fMLResponse->IsSelectedMultiClass(modelPred, dMeson, fAOD->GetMagneticField(), pidHF, 0);
-                if(isMLsel)
+                if(fDependOnMLSelector && fApplyML)
                 {
+                    std::vector<float>::iterator low = std::lower_bound(fPtLimsML.begin(), fPtLimsML.end(), ptCand);
+                    int bin = low - fPtLimsML.begin() - 1;
+                    if(bin < 0)
+                        bin = 0;
+                    else if(bin > fPtLimsML.size()-2)
+                        bin = fPtLimsML.size()-2;
+
+                    isMLsel = true;
+                    for(size_t iScore = 0; iScore < scoresFromMLSelector[iCand].size(); iScore++) {
+                        if((fMLOptScoreCuts[bin][iScore] == "upper" && scoresFromMLSelector[iCand][iScore] > fMLScoreCuts[bin][iScore]) ||
+                           (fMLOptScoreCuts[bin][iScore] == "lower" && scoresFromMLSelector[iCand][iScore] < fMLScoreCuts[bin][iScore]))
+                        {
+                            isMLsel = false;
+                            break;
+                        }
+                    }
+                }
+                else if(fApplyML)
+                    isMLsel = fMLResponse->IsSelectedMultiClass(modelPred, dMeson, fAOD->GetMagneticField(), pidHF, 0);
+
+                if(isMLsel || fFillSparsePreSelOnly)
+                {
+                    nSelected++;
+                    if(isInSignalRegion)
+                        nSelectedInMass++;
+
                     double mass = -1.;
                     switch(fDecChannel)
                     {
@@ -570,33 +676,71 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                             break;
                     }
 
-                    std::vector<double> var4nSparse = {mass, ptCand, centrality};
-                    var4nSparse.insert(var4nSparse.end(), modelPred.begin(), modelPred.end());
+                    std::vector<double> var4nSparse = {mass, ptCand, ptB, centrality, double(Ntracklets), y, phi};
+                    if(fDependOnMLSelector && fApplyML)
+                        var4nSparse.insert(var4nSparse.end(), scoresFromMLSelector[iCand].begin(), scoresFromMLSelector[iCand].end());
+                    else if(fApplyML)
+                        var4nSparse.insert(var4nSparse.end(), modelPred.begin(), modelPred.end());
                     if(!fReadMC)
                         fnSparseReco[0]->Fill(var4nSparse.data());
                     else
                     {
-                        if(labD >= 0 && orig == 4)
+                        if(labD >= 0)
                         {
-                            fnSparseReco[1]->Fill(var4nSparse.data());
+                            if(fDecChannel == kD0toKpi)
+                            {
+                                if(pdgCode0 == 321)
+                                    fnSparseReco[4]->Fill(var4nSparse.data());
+                                else if(orig == 4 && pdgCode0 != 321)
+                                    fnSparseReco[1]->Fill(var4nSparse.data());
+                                else if(orig == 5 && pdgCode0 != 321)
+                                    fnSparseReco[2]->Fill(var4nSparse.data());
+                            }
+                            else
+                            {
+                                if(orig == 4)
+                                    fnSparseReco[1]->Fill(var4nSparse.data());
+                                if(orig == 5)
+                                    fnSparseReco[2]->Fill(var4nSparse.data());
+                            }
                         }
                         else if(labD < 0)
                         {
                             fnSparseReco[3]->Fill(var4nSparse.data());
-                        }
-                        else if(labD >= 0 && orig == 5)
-                        {
-                            var4nSparse.insert(var4nSparse.end(), ptB);
-                            fnSparseReco[2]->Fill(var4nSparse.data());
                         }
                     }
                 }
             }
             if(fDecChannel == kD0toKpi && isSelected >= 2)
             {
-                isMLsel = fMLResponse->IsSelectedMultiClass(modelPred, dMeson, fAOD->GetMagneticField(), pidHF, 1);
-                if(isMLsel)
+                if(fDependOnMLSelector && fApplyML)
                 {
+                    std::vector<float>::iterator low = std::lower_bound(fPtLimsML.begin(), fPtLimsML.end(), ptCand);
+                    int bin = low - fPtLimsML.begin() - 1;
+                    if(bin < 0)
+                        bin = 0;
+                    else if(bin > fPtLimsML.size()-2)
+                        bin = fPtLimsML.size()-2;
+
+                    isMLsel = true;
+                    for(size_t iScore = 0; iScore < scoresFromMLSelectorSecond[iCand].size(); iScore++) {
+                        if((fMLOptScoreCuts[bin][iScore] == "upper" && scoresFromMLSelectorSecond[iCand][iScore] > fMLScoreCuts[bin][iScore]) ||
+                           (fMLOptScoreCuts[bin][iScore] == "lower" && scoresFromMLSelectorSecond[iCand][iScore] < fMLScoreCuts[bin][iScore]))
+                        {
+                            isMLsel = false;
+                            break;
+                        }
+                    }
+                }
+                else if(fApplyML)
+                    isMLsel = fMLResponse->IsSelectedMultiClass(modelPred, dMeson, fAOD->GetMagneticField(), pidHF, 1);
+
+                if(isMLsel || fFillSparsePreSelOnly)
+                {
+                    nSelected++;
+                    if(isInSignalRegion)
+                        nSelectedInMass++;
+
                     double mass = -1.;
                     switch(fDecChannel)
                     {
@@ -605,24 +749,27 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
                             break;
                     }
 
-                    std::vector<double> var4nSparse = {mass, ptCand, centrality};
-                    var4nSparse.insert(var4nSparse.end(), modelPred.begin(), modelPred.end());
+                    std::vector<double> var4nSparse = {mass, ptCand, ptB, centrality, double(Ntracklets), y, phi};
+                    if(fDependOnMLSelector && fApplyML)
+                        var4nSparse.insert(var4nSparse.end(), scoresFromMLSelectorSecond[iCand].begin(), scoresFromMLSelectorSecond[iCand].end());
+                    else if(fApplyML)
+                        var4nSparse.insert(var4nSparse.end(), modelPred.begin(), modelPred.end());
                     if(!fReadMC)
                         fnSparseReco[0]->Fill(var4nSparse.data());
                     else
                     {
-                        if(labD >= 0 && orig == 4)
+                        if(labD >= 0)
                         {
-                            fnSparseReco[1]->Fill(var4nSparse.data());
+                            if(pdgCode0 == 211)
+                                fnSparseReco[4]->Fill(var4nSparse.data());
+                            else if(orig == 4 && pdgCode0 != 211)
+                                fnSparseReco[1]->Fill(var4nSparse.data());
+                            else if(orig == 5 && pdgCode0 != 211)
+                                fnSparseReco[2]->Fill(var4nSparse.data());
                         }
                         else if(labD < 0)
                         {
                             fnSparseReco[3]->Fill(var4nSparse.data());
-                        }
-                        else if(labD >= 0 && orig == 5)
-                        {
-                            var4nSparse.insert(var4nSparse.end(), ptB);
-                            fnSparseReco[2]->Fill(var4nSparse.data());
                         }
                     }
                 }
@@ -630,9 +777,16 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
         }
 
         if (unsetVtx)
-            dMeson->UnsetOwnPrimaryVtx();
+            dMesonWithVtx->UnsetOwnPrimaryVtx();
         if (recVtx)
-            fRDCuts->CleanOwnPrimaryVtx(dMeson, fAOD, origOwnVtx);
+            fRDCuts->CleanOwnPrimaryVtx(dMesonWithVtx, fAOD, origOwnVtx);
+    }
+
+    if(nSelected > 0)
+    {
+        fSPDMultVsCentCand->Fill(centrality, Ntracklets);
+        if(nSelectedInMass > 0)
+            fSPDMultVsCentCandInMass->Fill(centrality, Ntracklets);
     }
 
     PostData(1, fOutput);
@@ -642,10 +796,10 @@ void AliAnalysisTaskSEDmesonTree::UserExec(Option_t * /*option*/)
 }
 
 //________________________________________________________________________
-int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson, AliAnalysisVertexingHF *vHF, bool &unsetVtx, bool &recVtx, AliAODVertex *&origOwnVtx)
+int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson, AliAODRecoDecayHF *&dMesonWithVtx, AliAnalysisVertexingHF *vHF, bool &unsetVtx, bool &recVtx, AliAODVertex *&origOwnVtx, bool &isInSignalRegion)
 {
 
-    if (!dMeson || !vHF)
+    if (!dMeson || !dMesonWithVtx || !vHF)
         return 0;
     fHistNEvents->Fill(11);
 
@@ -657,7 +811,11 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
 
     for (int iDau = 0; iDau < nDau; iDau++)
     {
-        AliAODTrack *track = vHF->GetProng(fAOD, dMeson, iDau);
+        AliAODTrack *track;
+        if ((fDecChannel != kDstartoD0pi) || (iDau == 0))
+            track = vHF->GetProng(fAOD, dMeson, iDau);
+        else
+            track = vHF->GetProng(fAOD, dMesonWithVtx, iDau-1); //D0<-D* daughters
         arrDauTracks.AddAt(track, iDau);
     }
 
@@ -698,9 +856,9 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
     fHistNEvents->Fill(12);
 
     unsetVtx = false;
-    if (!dMeson->GetOwnPrimaryVtx())
+    if (!dMesonWithVtx->GetOwnPrimaryVtx())
     {
-        dMeson->SetOwnPrimaryVtx(dynamic_cast<AliAODVertex *>(fAOD->GetPrimaryVertex()));
+        dMesonWithVtx->SetOwnPrimaryVtx(dynamic_cast<AliAODVertex *>(fAOD->GetPrimaryVertex()));
         unsetVtx = true;
         // NOTE: the own primary vertex should be unset, otherwise there is a memory leak
         // Pay attention if you use continue inside this loop!!!
@@ -715,7 +873,7 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
         if (pseudoRand > fFracCandToKeep && ptD < fMaxCandPtSampling)
         {
             if (unsetVtx)
-                dMeson->UnsetOwnPrimaryVtx();
+                dMesonWithVtx->UnsetOwnPrimaryVtx();
             return 0;
         }
     }
@@ -724,7 +882,7 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
     if (ptBin < 0)
     {
         if (unsetVtx)
-            dMeson->UnsetOwnPrimaryVtx();
+            dMesonWithVtx->UnsetOwnPrimaryVtx();
         return 0;
     }
 
@@ -732,7 +890,7 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
     if (!isFidAcc)
     {
         if (unsetVtx)
-            dMeson->UnsetOwnPrimaryVtx();
+            dMesonWithVtx->UnsetOwnPrimaryVtx();
         return 0;
     }
 
@@ -740,7 +898,7 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
     if (!isSelected)
     {
         if (unsetVtx)
-            dMeson->UnsetOwnPrimaryVtx();
+            dMesonWithVtx->UnsetOwnPrimaryVtx();
         return 0;
     }
 
@@ -749,23 +907,42 @@ int AliAnalysisTaskSEDmesonTree::IsCandidateSelected(AliAODRecoDecayHF *&dMeson,
 
     if (fRDCuts->GetIsPrimaryWithoutDaughters())
     {
-        if (dMeson->GetOwnPrimaryVtx())
-            origOwnVtx = new AliAODVertex(*dMeson->GetOwnPrimaryVtx());
-        if (fRDCuts->RecalcOwnPrimaryVtx(dMeson, fAOD))
+        if (dMesonWithVtx->GetOwnPrimaryVtx())
+            origOwnVtx = new AliAODVertex(*dMesonWithVtx->GetOwnPrimaryVtx());
+        if (fRDCuts->RecalcOwnPrimaryVtx(dMesonWithVtx, fAOD))
             recVtx = true;
         else
-            fRDCuts->CleanOwnPrimaryVtx(dMeson, fAOD, origOwnVtx);
+            fRDCuts->CleanOwnPrimaryVtx(dMesonWithVtx, fAOD, origOwnVtx);
     }
+
+    double mass = -1.;
+    switch(fDecChannel)
+    {
+        case kD0toKpi:
+            mass = dynamic_cast<AliAODRecoDecayHF2Prong *>(dMeson)->InvMassD0();
+            break;
+        case kDplustoKpipi:
+            mass = dynamic_cast<AliAODRecoDecayHF3Prong *>(dMeson)->InvMassDplus();
+            break;
+        case kDstartoD0pi:
+            mass = dynamic_cast<AliAODRecoCascadeHF *>(dMeson)->DeltaInvMass();
+            break;
+    }
+
+    if((fDecChannel != kDstartoD0pi && TMath::Abs(mass-TDatabasePDG::Instance()->GetParticle(fPdgD)->Mass()) < 0.02) ||
+       (fDecChannel == kDstartoD0pi && TMath::Abs(mass-(TDatabasePDG::Instance()->GetParticle(fPdgD)->Mass()-TDatabasePDG::Instance()->GetParticle(421)->Mass())) < 0.007))
+        isInSignalRegion = true;
 
     return isSelected;
 }
 
 //________________________________________________________________________
-void AliAnalysisTaskSEDmesonTree::FillMCGenAccHistos(TClonesArray *arrayMC, AliAODMCHeader *mcHeader)
+void AliAnalysisTaskSEDmesonTree::FillMCGenAccHistos(TClonesArray *arrayMC, AliAODMCHeader *mcHeader, int Ntracklets)
 {
     /// Fill MC histos for cuts study
     ///    - at GenLimAccStep and AccStep (if fFillAcceptanceLevel=false)
     ///    - at AccStep (if fFillAcceptanceLevel=true)
+    ///    - without mother rapidity cut and daughter acceptance check
 
     double zMCVertex = mcHeader->GetVtxZ(); //vertex MC
     if (TMath::Abs(zMCVertex) <= fRDCuts->GetMaxVtxZ())
@@ -811,20 +988,21 @@ void AliAnalysisTaskSEDmesonTree::FillMCGenAccHistos(TClonesArray *arrayMC, AliA
                 {
                     double pt = mcPart->Pt();
                     double rapid = mcPart->Y();
+                    double phi = mcPart->Phi();
                     isFidAcc = fRDCuts->IsInFiducialAcceptance(pt, rapid);
                     isDaugInAcc = CheckDaugAcc(arrayMC, nDau, labDau);
 
-                    if ((fFillAcceptanceLevel && isFidAcc && isDaugInAcc) || (!fFillAcceptanceLevel && TMath::Abs(rapid) < 0.5))
+                    if ((fFillAcceptanceLevel && isFidAcc && isDaugInAcc) || (!fFillAcceptanceLevel && TMath::Abs(rapid) < 0.5) || fFillNoAccAndYCut)
                     {
                         if (orig == 4 && !isParticleFromOutOfBunchPileUpEvent)
                         {
-                            double var4nSparseAcc[knVarForSparseAcc] = {pt, rapid};
+                            double var4nSparseAcc[knVarForSparseAcc] = {pt, rapid, -999., double(Ntracklets), phi};
                             fnSparseMC[0]->Fill(var4nSparseAcc);
                         }
                         else if (orig == 5 && !isParticleFromOutOfBunchPileUpEvent)
                         {
                             double ptB = AliVertexingHFUtils::GetBeautyMotherPt(arrayMC, mcPart);
-                            double var4nSparseAcc[knVarForSparseAccFD] = {pt, rapid, ptB};
+                            double var4nSparseAcc[knVarForSparseAcc] = {pt, rapid, ptB, double(Ntracklets), phi};
                             fnSparseMC[1]->Fill(var4nSparseAcc);
                         }
                     }
@@ -874,19 +1052,23 @@ void AliAnalysisTaskSEDmesonTree::CreateEffSparses()
     if (fUseFinPtBinsForSparse)
         nPtBins = nPtBins * 10;
 
-    int nBinsAcc[knVarForSparseAccFD] = {nPtBins, 20, nPtBins};
-    double xminAcc[knVarForSparseAccFD] = {0., -1., 0.};
-    double xmaxAcc[knVarForSparseAccFD] = {ptLims[nPtBinsCutObj], 1., ptLims[nPtBinsCutObj]};
+    int nBinsAcc[knVarForSparseAcc] = {nPtBins, 20, nPtBins, 201, 36};
+    double xminAcc[knVarForSparseAcc] = {0., -1., 0., -0.5, 0.};
+    double xmaxAcc[knVarForSparseAcc] = {ptLims[nPtBinsCutObj], 1., ptLims[nPtBinsCutObj], 200.5, 2 * TMath::Pi()};
 
     TString label[2] = {"fromC", "fromB"};
     for (int iHist = 0; iHist < 2; iHist++)
     {
-        TString titleSparse = Form("MC nSparse (%s)- %s", fFillAcceptanceLevel ? "Acc.Step" : "Gen.Acc.Step", label[iHist].Data());
-        fnSparseMC[iHist] = new THnSparseF(Form("fnSparseAcc_%s", label[iHist].Data()), titleSparse.Data(), (iHist == 0) ? knVarForSparseAcc : knVarForSparseAccFD, nBinsAcc, xminAcc, xmaxAcc);
+        TString name = fFillAcceptanceLevel ? "Acc.Step" : "Gen.Acc.Step";
+        if (fFillNoAccAndYCut)
+            name = "No Acc. and Y Cut";
+        TString titleSparse = Form("MC nSparse (%s)- %s", name.Data(), label[iHist].Data());
+        fnSparseMC[iHist] = new THnSparseF(Form("fnSparseAcc_%s", label[iHist].Data()), titleSparse.Data(), knVarForSparseAcc, nBinsAcc, xminAcc, xmaxAcc);
         fnSparseMC[iHist]->GetAxis(0)->SetTitle("#it{p}_{T} (GeV/c)");
         fnSparseMC[iHist]->GetAxis(1)->SetTitle("#it{y}");
-        if (iHist == 1)
-            fnSparseMC[iHist]->GetAxis(2)->SetTitle("#it{p}_{T}^{B} (GeV/c)");
+        fnSparseMC[iHist]->GetAxis(2)->SetTitle("#it{p}_{T}^{B} (GeV/c)");
+        fnSparseMC[iHist]->GetAxis(3)->SetTitle("#it{N}_{tracklets}");
+        fnSparseMC[iHist]->GetAxis(4)->SetTitle("#varphi");
         fOutput->Add(fnSparseMC[iHist]);
     }
 }
@@ -918,30 +1100,37 @@ void AliAnalysisTaskSEDmesonTree::CreateRecoSparses()
             break;
         case kDstartoD0pi:
             massMin = 0.138;
-            massMax = 0.160;
+            massMax = 0.188;
             massTitle = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
             break;
     }
 
-    int nBinsReco[knVarForSparseRecoFD] = {nMassBins, nPtBins, 100, fNMLBins[0], fNMLBins[1], fNMLBins[2], 2*nPtBins};
-    double xminReco[knVarForSparseRecoFD] = {massMin, 0., 0., fMLOutputMin[0], fMLOutputMin[1], fMLOutputMin[2], 0.};
-    double xmaxReco[knVarForSparseRecoFD] = {massMax, ptLims[nPtBinsCutObj], 100., fMLOutputMax[0], fMLOutputMax[1], fMLOutputMax[2], 2*ptLims[nPtBinsCutObj]};
-    int nVars = 4;
-    if(fMultiClass)
-        nVars = 6;
+    int nBinsReco[knVarForSparseReco] = {nMassBins, nPtBins, 2*nPtBins, 1000, 201, 20, 36, fNMLBins[0], fNMLBins[1], fNMLBins[2]};
+    double xminReco[knVarForSparseReco] = {massMin, 0., 0., 0., -0.5, -1., 0., fMLOutputMin[0], fMLOutputMin[1], fMLOutputMin[2]};
+    double xmaxReco[knVarForSparseReco] = {massMax, ptLims[nPtBinsCutObj], 2*ptLims[nPtBinsCutObj], 100., 200.5, 1., 2 * TMath::Pi(), fMLOutputMax[0], fMLOutputMax[1], fMLOutputMax[2]};
+    int nVars = 7;
+    if(fApplyML)
+        nVars = 8;
+        if(fMultiClass)
+            nVars = 10;
 
-    TString label[4] = {"all", "fromC", "fromB", "bkg"};
-    for (int iHist = 0; iHist < 4; iHist++)
+    TString label[5] = {"all", "fromC", "fromB", "bkg", "refl"};
+    for (int iHist = 0; iHist < 5; iHist++)
     {
         TString titleSparse = Form("Reco nSparse - %s", label[iHist].Data());
-        fnSparseReco[iHist] = new THnSparseF(Form("fnSparseReco_%s", label[iHist].Data()), titleSparse.Data(), (iHist == 2) ? nVars+1 : nVars, nBinsReco, xminReco, xmaxReco);
+        fnSparseReco[iHist] = new THnSparseF(Form("fnSparseReco_%s", label[iHist].Data()), titleSparse.Data(), nVars, nBinsReco, xminReco, xmaxReco);
         fnSparseReco[iHist]->GetAxis(0)->SetTitle(massTitle.data());
         fnSparseReco[iHist]->GetAxis(1)->SetTitle("#it{p}_{T} (GeV/c)");
-        fnSparseReco[iHist]->GetAxis(2)->SetTitle("centrality (%)");
-        for(int iAx=3; iAx<6; iAx++)
-            fnSparseReco[iHist]->GetAxis(iAx)->SetTitle(Form("ML output %d", iAx));
-        if (iHist == 2)
-            fnSparseReco[iHist]->GetAxis(6)->SetTitle("#it{p}_{T}^{B} (GeV/c)");
+        fnSparseReco[iHist]->GetAxis(2)->SetTitle("#it{p}_{T}^{B} (GeV/c)");
+        fnSparseReco[iHist]->GetAxis(3)->SetTitle("centrality (%)");
+        fnSparseReco[iHist]->GetAxis(4)->SetTitle("#it{N}_{tracklets}");
+        fnSparseReco[iHist]->GetAxis(5)->SetTitle("#it{y}");
+        fnSparseReco[iHist]->GetAxis(6)->SetTitle("#varphi");
+        if(fApplyML)
+        {
+            for(int iAx=7; iAx<nVars; iAx++)
+                fnSparseReco[iHist]->GetAxis(iAx)->SetTitle(Form("ML output %d", iAx-7));
+        }
         fOutput->Add(fnSparseReco[iHist]);
     }
 }

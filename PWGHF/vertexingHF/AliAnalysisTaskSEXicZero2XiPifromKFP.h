@@ -49,11 +49,14 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
 
         void                    SetMC(Bool_t IsMC) {fIsMC=IsMC;}
         void                    SetAnaOmegac0(Bool_t IsAnaOmegac0) {fIsAnaOmegac0=IsAnaOmegac0;}
+        void                    SetStoreLikeSign(Bool_t IsStoreLS) {fIsStoreLS=IsStoreLS;}
         void                    SelectTrack(AliVEvent *event, Int_t trkEntries, Int_t &nSeleTrks, Bool_t *seleFlags);
         Bool_t                  MakeMCAnalysis(TClonesArray *mcArray);
         void                    MakeAnaXicZeroFromV0(AliAODEvent *AODEvent, TClonesArray *mcArray, KFParticle PV);
         void                    MakeAnaXicZeroFromCasc(AliAODEvent *AODEvent, TClonesArray *mcArray, KFParticle PV);
         Int_t                   MatchToMCXic0(AliAODTrack *trackProton, AliAODTrack *trackPion3, AliAODTrack *trackPion2, AliAODTrack *trackAntiPion1, TClonesArray *mcArray);
+        Int_t                   MatchToMCOmegaMinus(AliAODTrack *trackProton, AliAODTrack *trackPionMinus, AliAODTrack *trackKaon, TClonesArray *mcArray);
+        Int_t                   MatchToMCOmegaPlus(AliAODTrack *trackProton, AliAODTrack *trackPionMinus, AliAODTrack *trackKaon, TClonesArray *mcArray);
         Int_t                   MatchToMCOmegac0(AliAODTrack *trackProton, AliAODTrack *trackPionMinus, AliAODTrack *trackKaon, AliAODTrack *trackPionPlus, TClonesArray *mcArray);
         Int_t                   MatchToMCAntiXic0(AliAODTrack *trackAntiProton, AliAODTrack *trackAntiPion3, AliAODTrack *trackAntiPion2, AliAODTrack *trackPion1, TClonesArray *mcArray);
         Int_t                   MatchToMCAntiOmegac0(AliAODTrack *trackAntiProton, AliAODTrack *trackPionPlus, AliAODTrack *trackKaon, AliAODTrack *trackPionMinus, TClonesArray *mcArray);
@@ -77,7 +80,7 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
         void FillEventROOTObjects();
         void FillTreeGenXic0(AliAODMCParticle *mcpart, Int_t CheckOrigin, Double_t MLoverP);
         void FillTreeRecXic0FromV0(KFParticle kfpXicZero, AliAODTrack *trackPi, KFParticle kfpBP, KFParticle kfpXiMinus, KFParticle kfpXiMinus_m, AliAODTrack *trackPiFromXi, AliAODv0 *v0, KFParticle kfpK0Short, KFParticle kfpLambda, KFParticle kfpLambda_m, AliAODTrack *trkP, AliAODTrack *trkN, KFParticle PV, TClonesArray *mcArray, Int_t lab_Xic0);
-        void FillTreeRecXic0FromCasc(KFParticle kfpXic0, AliAODTrack *trackPiFromXic0, KFParticle kfpBP, KFParticle kfpXiMinus, KFParticle kfpXiMinus_m, KFParticle kfpPionOrKaon, AliAODTrack *trackPiFromXiOrKaonFromOmega, AliAODcascade *casc, KFParticle kfpK0Short, KFParticle kfpGamma, KFParticle kfpLambda, KFParticle kfpLambda_m, AliAODTrack *trkProton, AliAODTrack *trkPion, KFParticle PV, TClonesArray *mcArray, Int_t lab_Xic0);
+        void FillTreeRecXic0FromCasc(Int_t flagUSorLS, KFParticle kfpXic0, AliAODTrack *trackPiFromXic0, KFParticle kfpBP, KFParticle kfpXiMinus, KFParticle kfpXiMinus_m, KFParticle kfpPionOrKaon, AliAODTrack *trackPiFromXiOrKaonFromOmega, AliAODcascade *casc, KFParticle kfpK0Short, KFParticle kfpGamma, KFParticle kfpLambda, KFParticle kfpLambda_m, AliAODTrack *trkProton, AliAODTrack *trkPion, KFParticle PV, TClonesArray *mcArray, Int_t lab_Xic0);
 
     private:
         void                    DefineEvent();
@@ -89,7 +92,6 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
         AliAODVertex*           fpVtx;                //!<! primary vertex
         AliMCEvent*             fMCEvent;             //!<! corresponding mc event
         Double_t                fBzkG;                ///< magnetic field value [kG]
-        Float_t                 fCentrality;           ///< Centrality
 //        Int_t                   fRunNumber;            ///< Run Number
 //        Int_t                   fEvNumberCounter;      ///< EvNumber counter
 //        TObjArray               fMapParticle;         ///< Map of particles in the supporting TClonesArray
@@ -107,8 +109,14 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
 
         Bool_t                  fIsMC; ///< Flag of MC analysis
         Bool_t                  fIsAnaOmegac0; ///< Flag of Omegac0 analysis
+        Bool_t                  fIsINEL; ///< Flag of INEL
+        Bool_t                  fIsStoreLS; ///< Flag to store like-sign pairs
+
+        Double_t                fCentrality; //!<! V0M percentile 
+        Int_t                   fNtracklets; //!<! SPD tracklet
 
         AliNormalizationCounter* fCounter; //!<! Counter for normalization
+        AliNormalizationCounter* fCounter_INEL; //!<! Counter normalization of INEL
         TH1F*                   fHistMCGen_Lambda_Pt; //!<! Pt distribution of lambda at gen. level
         TH1F*                   fHistMCGen_AntiLambda_Pt; //!<! Pt distribution of lambda at gen. level
         TH1F*                   fHistMCGen_Lambda_Pt_wYcut; //!<! Pt distribution of lambda at gen. level
@@ -378,11 +386,14 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
         TH1F*                   fHistPVy;              //!<! Histogram of primary vertex in y
         TH1F*                   fHistPVz;              //!<! Histogram of primary vertex in z
         TH1F*                   fHCentrality;          //!<! Histogram of centrality
-        TH1F*                   fHistMCXicZeroDecayType; //!<! MC event type of Xic0
         TH1F*                   fHistMCXiDecayType; //!<! MC event type of Xi
         TH1F*                   fHistMCpdg_All;     //!<! PDG of all particle
         TH1F*                   fHistMCpdg_Dau_XicZero;     //!<! PDG of all particle from Xic0 decay
         TH1F*                   fHistMCpdg_Dau_XicPM;     //!<! PDG of all particle from Xic+- decay
+        TH1F*                   fHistPt_OmegaNotFromOmegac0_Rec; //!<! Histogram of pt of Omega in rec.
+        TH1F*                   fHistPt_OmegaNotFromOmegac0_Gen; //!<! Histogram of pt of Omega in gen.
+        TH2F*                   f2DHist_YvsPt_OmegaNotFromOmegac0_Rec; //!<! 2D Histogram of Y vs. pt of Omega in rec.
+        TH2F*                   f2DHist_YvsPt_OmegaNotFromOmegac0_Gen; //!<! 2D Histogram of Y vs. pt of Omega in gen.
         THnSparseF*             fHistMCGen_XicZeroTot;  //!<! mcArray
         THnSparseF*             fHistMCGen_XicZero;     //!<! mcArray
         THnSparseF*             fHistMCGen_AntiXicZero; //!<! mcArray
@@ -404,7 +415,7 @@ class AliAnalysisTaskSEXicZero2XiPifromKFP : public AliAnalysisTaskSE
         AliAnalysisTaskSEXicZero2XiPifromKFP(const AliAnalysisTaskSEXicZero2XiPifromKFP &source); // not implemented
         AliAnalysisTaskSEXicZero2XiPifromKFP& operator=(const AliAnalysisTaskSEXicZero2XiPifromKFP& source); // not implemented
 
-        ClassDef(AliAnalysisTaskSEXicZero2XiPifromKFP, 7);
+        ClassDef(AliAnalysisTaskSEXicZero2XiPifromKFP, 13);
 };
 
 #endif

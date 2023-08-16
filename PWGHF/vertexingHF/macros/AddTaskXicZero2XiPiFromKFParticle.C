@@ -5,7 +5,11 @@
 #include <TList.h>
 #endif
 
-AliAnalysisTaskSEXicZero2XiPifromKFP* AddTaskXicZero2XiPiFromKFParticle(TString finname="", Bool_t IsMC=kFALSE, TString cuttype="", Bool_t IsAnaOmegac0=kFALSE)
+AliAnalysisTaskSEXicZero2XiPifromKFP* AddTaskXicZero2XiPiFromKFParticle(TString cutsfile="", // Cut object
+                                                                        Bool_t IsMC=kFALSE, // kFALSE: data; kTRUE: MC
+                                                                        TString cuttype="", // Cut type: "std", "loose", "tight", "veryloose", "verytight", "veryverytight"
+                                                                        Bool_t IsAnaOmegac0=kFALSE, // kFALSE: Xic0; kTRUE: Omegac0
+                                                                        Bool_t IsStoreLS=kFALSE) // kTRUE: store (Pi+ Xi+), (Pi- Xi-), (Pi+ Xi-) and (Pi- Xi+); kFALSE: store (Pi+ Xi-) and (Pi- Xi+)
 {
     Bool_t writeXic0RecTree = kTRUE;
     Bool_t writeXic0MCGenTree = kFALSE;
@@ -32,10 +36,10 @@ AliAnalysisTaskSEXicZero2XiPifromKFP* AddTaskXicZero2XiPiFromKFParticle(TString 
     // check input cut object
     Bool_t stdCuts = kFALSE;
     TFile* fileCuts;
-    if ( finname.EqualTo("") ) {
+    if ( cutsfile.EqualTo("") ) {
       stdCuts = kTRUE;
     } else {
-      fileCuts = TFile::Open(finname.Data());
+      fileCuts = TFile::Open(cutsfile.Data());
       if( !fileCuts || (fileCuts && !fileCuts->IsOpen()) ) {
         cout << "Input file not found : check your cut object" << endl;
         return NULL;
@@ -71,6 +75,7 @@ AliAnalysisTaskSEXicZero2XiPifromKFP* AddTaskXicZero2XiPiFromKFParticle(TString 
     task->SetDebugLevel(1);
     task->SetWriteXic0MCGenTree(writeXic0MCGenTree);
     task->SetWriteXic0Tree(writeXic0RecTree);
+    task->SetStoreLikeSign(IsStoreLS);
 
     /*
     // weight
@@ -115,6 +120,8 @@ AliAnalysisTaskSEXicZero2XiPifromKFP* AddTaskXicZero2XiPiFromKFParticle(TString 
     mgr->ConnectOutput(task,3,mgr->CreateContainer(Form("tree_event_char_%s", cuttype.Data()), TTree::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
     mgr->ConnectOutput(task,4,mgr->CreateContainer(Form("tree_%s_%s", particle.Data(),cuttype.Data()), TTree::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
     mgr->ConnectOutput(task,5,mgr->CreateContainer(Form("tree_%s_MCGen_%s", particle.Data(),cuttype.Data()), TTree::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
+    mgr->ConnectOutput(task,6,mgr->CreateContainer(Form("hist_%s_MC_%s", particle.Data(),cuttype.Data()), TList::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
+    mgr->ConnectOutput(task,7,mgr->CreateContainer(Form("Counter_INEL_%s", cuttype.Data()), AliNormalizationCounter::Class(), AliAnalysisManager::kOutputContainer, fileName.Data()));
 
     // in the end, this macro returns a pointer to your task. this will be convenient later on
     // when you will run your analysis in an analysis train on grid

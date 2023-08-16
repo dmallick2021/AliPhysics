@@ -17,6 +17,7 @@ AliFemtoDreamHigherPairMath::AliFemtoDreamHigherPairMath(
       fBField(-99.),
       fRejPairs(conf->GetClosePairRej()),
       fDoDeltaEtaDeltaPhiCut(conf->GetDoDeltaEtaDeltaPhiCut()),
+      fRejectMotherDaughter(conf->GetRejectMotherDaughter()),
       fDeltaPhiSqMax(conf->GetDeltaPhiMax() * conf->GetDeltaPhiMax()),
       fDeltaEtaSqMax(conf->GetDeltaEtaMax() * conf->GetDeltaEtaMax()),
       fDeltaPhiEtaMax(conf->GetSqDeltaPhiEtaMax()),
@@ -38,6 +39,7 @@ AliFemtoDreamHigherPairMath::AliFemtoDreamHigherPairMath(
       fBField(-99.),
       fRejPairs(samp.fRejPairs),
       fDoDeltaEtaDeltaPhiCut(samp.fDoDeltaEtaDeltaPhiCut),
+      fRejectMotherDaughter(samp.fRejectMotherDaughter),
       fDeltaPhiSqMax(samp.fDeltaPhiSqMax),
       fDeltaEtaSqMax(samp.fDeltaEtaSqMax),
       fDeltaPhiEtaMax(samp.fDeltaPhiEtaMax),
@@ -55,6 +57,7 @@ AliFemtoDreamHigherPairMath& AliFemtoDreamHigherPairMath::operator=(
   fBField = math.fBField;
   fRejPairs = math.fRejPairs;
   fDoDeltaEtaDeltaPhiCut = math.fDoDeltaEtaDeltaPhiCut;
+  fRejectMotherDaughter = math.fRejectMotherDaughter;
   fDeltaPhiSqMax = math.fDeltaPhiSqMax;
   fDeltaEtaSqMax = math.fDeltaEtaSqMax; 
   fDeltaPhiEtaMax = math.fDeltaPhiEtaMax;
@@ -82,6 +85,27 @@ bool AliFemtoDreamHigherPairMath::PassesPairSelection(
   }
   return pass;
 }
+
+bool AliFemtoDreamHigherPairMath::PassesMDPairSelection(
+    AliFemtoDreamBasePart& part1, AliFemtoDreamBasePart& part2) {
+
+  bool pass = true;
+
+  if(fRejectMotherDaughter){
+    std::vector<int> IDTrack = part1.GetIDTracks();
+    std::vector<int> IDDaug = part2.GetIDTracks();
+    for (const auto &idt : IDTrack) {
+      for (const auto &idd : IDDaug) {
+        if (idt == idd){
+          std::cout<<"LALALAL"<<std::endl;
+          pass=false;
+        } 
+      }
+    }
+  }
+  return pass;
+}
+
 
 bool AliFemtoDreamHigherPairMath::CommonAncestors(AliFemtoDreamBasePart& part1, AliFemtoDreamBasePart& part2) {
     bool IsCommon = false;
@@ -174,8 +198,7 @@ float AliFemtoDreamHigherPairMath::FillSameEvent(int iHC, int Mult, float cent,
                                 RelativeK);
   }
   if (fillHists && fHists->GetDokTandMultBinning()) {
-    fHists->FillSameEventkTandMultDist(iHC, RelativePairkT(PartOne, PartTwo),
-                                       RelativeK, Mult + 1);
+    fHists->FillSameEventkTandMultDist(iHC, RelativePairkT(PartOne, PartTwo), RelativeK, Mult + 1);
     if (fHists->GetDokTandMultPtBinning() && RelativeK < 0.2) {
     fHists->FillSameEventkTandMultPtDist(iHC, RelativePairkT(PartOne, PartTwo),
                                        Part1Momentum.Pt(), Mult + 1);
@@ -183,10 +206,20 @@ float AliFemtoDreamHigherPairMath::FillSameEvent(int iHC, int Mult, float cent,
                                        Part2Momentum.Pt(), Mult + 1);
     }
   }
+  if (fillHists && fHists->GetDokTandMultMCTrueBinning()) {
+    if ((PDGPart1 == TMath::Abs(part1.GetMCPDGCode())) && ((PDGPart2 == TMath::Abs(part2.GetMCPDGCode())))) {
+      //Only record reconstructed MC True particles
+      fHists->FillSameEventkTandMultMCTrueDist(iHC, RelativePairkT(PartOne, PartTwo), RelativeK, Mult + 1);
+    }
+  }
   if (fillHists && fHists->GetDomTMultPlots()) {
     fHists->FillSameEventmTMultDist(iHC, RelativePairmT(PartOne, PartTwo), Mult + 1, 
 				   RelativeK); 
   }   
+  if (fillHists && fHists->GetDopTOnepTTwokStarPlotsmT()) {
+    fHists->FillSameEventpTOnepTTwokStar(iHC, RelativePairmT(PartOne, PartTwo), Part1Momentum.Pt(), Part2Momentum.Pt(),
+				   RelativeK); 
+  }
   if (fillHists && fHists->GetDoPtQA()) {
     fHists->FillPtQADist(iHC, RelativeK, Part1Momentum.Pt(),
                          Part2Momentum.Pt());
@@ -206,6 +239,9 @@ float AliFemtoDreamHigherPairMath::FillSameEvent(int iHC, int Mult, float cent,
       if (fHists->GetDomTBinning()) {
 	fHists->FillSameEventmTDistCommon(iHC, RelativePairmT(PartOne, PartTwo), RelativeK);
       }
+      if (fHists->GetDomTMultPlots()) {
+	fHists->FillSameEventmTMultDistCommon(iHC, RelativePairmT(PartOne, PartTwo), Mult + 1, RelativeK);
+      }
     } else {
       fHists->FillSameEventDistNonCommon(iHC, RelativeK);
       if (fHists->GetDoMultBinning()) {
@@ -214,9 +250,15 @@ float AliFemtoDreamHigherPairMath::FillSameEvent(int iHC, int Mult, float cent,
       if (fHists->GetDomTBinning()) {
 	fHists->FillSameEventmTDistNonCommon(iHC, RelativePairmT(PartOne, PartTwo), RelativeK);
       }
+      if (fHists->GetDomTMultPlots()) {
+	fHists->FillSameEventmTMultDistNonCommon(iHC, RelativePairmT(PartOne, PartTwo), Mult + 1, RelativeK);
+      }
     }
   }
   return RelativeK;
+  }
+  else {
+    return -1;
   }
 }
 
@@ -293,13 +335,22 @@ float AliFemtoDreamHigherPairMath::FillMixedEvent(
                                  RelativeK);
   }
   if (fillHists && fHists->GetDokTandMultBinning()) {
-    fHists->FillMixedEventkTandMultDist(iHC, RelativePairkT(PartOne, PartTwo),
-                                        RelativeK, Mult + 1);
+    fHists->FillMixedEventkTandMultDist(iHC, RelativePairkT(PartOne, PartTwo), RelativeK, Mult + 1);
+  }
+  if (fillHists && fHists->GetDokTandMultMCTrueBinning()) {
+    if ((PDGPart1 == TMath::Abs(part1.GetMCPDGCode())) && ((PDGPart2 == TMath::Abs(part2.GetMCPDGCode())))) {
+      //Only record reconstructed MC True particles
+      fHists->FillMixedEventkTandMultMCTrueDist(iHC, RelativePairkT(PartOne, PartTwo), RelativeK, Mult + 1);
+    }
   }
   if (fillHists && fHists->GetDomTMultPlots()) {
     fHists->FillMixedEventmTMultDist(iHC, RelativePairmT(PartOne, PartTwo), Mult + 1, 
 				   RelativeK); 
   }   
+  if (fillHists && fHists->GetDopTOnepTTwokStarPlotsmT()) {
+    fHists->FillMixedEventpTOnepTTwokStar(iHC, RelativePairmT(PartOne, PartTwo), Part1Momentum.Pt(), Part2Momentum.Pt(),
+				   RelativeK); 
+  }
   if (fillHists && fHists->GetDoPtQA()) {
     fHists->FillPtMEOneQADist(iHC, Part1Momentum.Pt(), Mult + 1);
     fHists->FillPtMETwoQADist(iHC, Part2Momentum.Pt(), Mult + 1);

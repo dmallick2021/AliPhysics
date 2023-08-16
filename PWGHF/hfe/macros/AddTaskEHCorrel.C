@@ -13,7 +13,9 @@ AliAnalysisTask *AddTaskEHCorrel(TString ContNameExt = "", Bool_t isPbPb=kFALSE,
     Bool_t ClsTypeEMC=kTRUE, Bool_t ClsTypeDCAL=kTRUE,
     Int_t AddPileUpCut=kFALSE, Int_t hadCutCase=2,  Bool_t FillEHCorrel=kTRUE,
     Bool_t  CalcHadronTrackEffi=kFALSE, Bool_t CalculateNonHFEEffi=kFALSE, Bool_t CalPi0EtaWeight=kFALSE,
-    Bool_t applyEleEffi=kFALSE, Int_t nBins=32, Bool_t isMC=kFALSE, Bool_t removePileUpMCGen=kFALSE)
+    Bool_t applyEleEffi=kFALSE, Int_t nBins=32, Bool_t isMC=kFALSE, Bool_t removePileUpMCGen=kFALSE, Bool_t pPbpass2weight=kTRUE,
+    Bool_t IsPbPb2018 = kFALSE, 
+    Bool_t ClusOn = kFALSE, Bool_t HadInfoOn = kFALSE, Bool_t TracksOn = kFALSE)
 {
   //get the current analysis manager
   AliAnalysisManager *mgr = AliAnalysisManager::GetAnalysisManager();
@@ -43,12 +45,13 @@ AliAnalysisTask *AddTaskEHCorrel(TString ContNameExt = "", Bool_t isPbPb=kFALSE,
     
   Int_t PhysSel = AliVEvent::kINT7;
 
-  if(PhysSel == AliVEvent::kINT7){
+  if(!IsPbPb2018 && PhysSel == AliVEvent::kINT7){
     AliAnalysisTaskEHCorrel *taskHFEeh = new AliAnalysisTaskEHCorrel("eh");
     mgr->AddTask(taskHFEeh);
     taskHFEeh->SelectCollisionCandidates(AliVEvent::kINT7);
     taskHFEeh->IsPbPb(isPbPb);
     taskHFEeh->Ispp(ispp);
+    taskHFEeh->IsPASS2weight(pPbpass2weight);
     taskHFEeh->SetCentralitySelection(centMin,centMax);
     taskHFEeh->SetMinTPCNCrossRElec(MinTPCNCrossRE);
     taskHFEeh->SetMinRatioTPCNCrossRElec(MinRatioTPCNCrossRE);
@@ -82,6 +85,9 @@ AliAnalysisTask *AddTaskEHCorrel(TString ContNameExt = "", Bool_t isPbPb=kFALSE,
     taskHFEeh->SwitchHadTrackEffi(CalcHadronTrackEffi);
     taskHFEeh->SwitchFillEHCorrel(FillEHCorrel);
     taskHFEeh->SetWeightCal(CalPi0EtaWeight);
+    taskHFEeh->IsClustersOn(ClusOn);
+    taskHFEeh->IsHadInfoOn(HadInfoOn);
+    taskHFEeh->IsTracksOn(TracksOn);
     taskHFEeh->SetNonHFEEffi(CalculateNonHFEEffi);
     taskHFEeh->SetNDeltaPhiBins(nBins);
     taskHFEeh->IsMC(isMC);
@@ -119,5 +125,65 @@ AliAnalysisTask *AddTaskEHCorrel(TString ContNameExt = "", Bool_t isPbPb=kFALSE,
     mgr->ConnectInput(taskHFEehGA01, 0, cinput);
     mgr->ConnectOutput(taskHFEehGA01, 1, coutput1);
   }
+    
+    if(IsPbPb2018){
+        //Centrality trigger used in 2018
+        AliAnalysisTaskEHCorrel *taskHFEehCent = new AliAnalysisTaskEHCorrel("ehCent");
+        mgr->AddTask(taskHFEehCent);
+        if(centMin == 0) taskHFEehCent->SelectCollisionCandidates(AliVEvent::kCentral); 
+        if(centMin == 30) taskHFEehCent->SelectCollisionCandidates(AliVEvent::kSemiCentral);
+        taskHFEehCent->IsPbPb(isPbPb);
+        taskHFEehCent->Ispp(ispp);
+        taskHFEehCent->IsPASS2weight(pPbpass2weight);
+        taskHFEehCent->SetCentralitySelection(centMin,centMax);
+        taskHFEehCent->SetMinTPCNCrossRElec(MinTPCNCrossRE);
+        taskHFEehCent->SetMinRatioTPCNCrossRElec(MinRatioTPCNCrossRE);
+        taskHFEehCent->SetMinITSNClsElec(MinITSNClsE);
+        taskHFEehCent->SetEleEtaCuts(EleEtaMin, EleEtaMax);
+        taskHFEehCent->SetTPCnsigCut(nsigMin,nsigMax);
+        taskHFEehCent->SetM02Cut(m02Min,m02Max);
+        taskHFEehCent->SetEovPCut(eovpMin,eovpMax);
+        taskHFEehCent->SetHadronCutCase(hadCutCase);
+        taskHFEehCent->SetTriggerElePtCut(trigElePtcut);
+        taskHFEehCent->SetClusterTypeEMC(ClsTypeEMC);
+        taskHFEehCent->SetClusterTypeDCAL(ClsTypeDCAL);
+        taskHFEehCent->SetPartnerEleMinTPCNCls(MinNClsPE);
+        taskHFEehCent->SetPartnerEleMinPt(PtPE);
+        taskHFEehCent->SetInvmassCut(invmasscut);
+        taskHFEehCent->SetHadMinTPCNCrossR(MinNCrossRHad);
+        taskHFEehCent->SetHadMinRatioTPCNCrossR(MinRatioNCrossRHad);
+        taskHFEehCent->SetHadSPDkAny(HadSPDkAny);
+        taskHFEehCent->SetHadLargeITSNCls(HadLargITSNCls);
+        taskHFEehCent->SetHadEtaCuts(HadEtaMin, HadEtaMax);
+        //taskHFEehCent->SetHadFiducialCut(HadFiducialCut);
+        //taskHFEehCent->SetHadPosEtaOnly(HadPosEtaOnly);
+        //taskHFEehCent->SetHadNegEtaOnly(HadNegEtaOnly);
+        taskHFEehCent->SwitchMECorrec(FillME);
+        taskHFEehCent->SetMEBinChange(MEBinChange);
+        taskHFEehCent->SetElecSPDkFirst(EleSPDkFirst);
+        taskHFEehCent->SetTenderSwitch(useTender);
+        taskHFEehCent->SetEMCClsTimeCut(EMCtimeCut);
+        taskHFEehCent->SetAdditionalPileUpCuts(AddPileUpCut);
+        taskHFEehCent->SetElecEffi(applyEleEffi);
+        taskHFEehCent->SwitchHadTrackEffi(CalcHadronTrackEffi);
+        taskHFEehCent->SwitchFillEHCorrel(FillEHCorrel);
+        taskHFEehCent->SetWeightCal(CalPi0EtaWeight);
+        taskHFEehCent->IsClustersOn(ClusOn);
+        taskHFEehCent->IsHadInfoOn(HadInfoOn);
+        taskHFEehCent->IsTracksOn(TracksOn);
+        taskHFEehCent->SetNonHFEEffi(CalculateNonHFEEffi);
+        taskHFEehCent->SetNDeltaPhiBins(nBins);
+        taskHFEehCent->IsMC(isMC);
+        taskHFEehCent->RemovePileUpInMCGen(removePileUpMCGen);
+
+        TString containerName = mgr->GetCommonFileName();
+        TString SubcontainerName = ContNameExt;
+        SubcontainerName += "_EH_CentTrig";
+        AliAnalysisDataContainer *coutputCent = mgr->CreateContainer(SubcontainerName,TList::Class(),AliAnalysisManager::kOutputContainer,containerName.Data());
+          AliAnalysisDataContainer *cinputCent  = mgr->GetCommonInputContainer();
+        mgr->ConnectInput(taskHFEehCent,0,cinputCent);
+        mgr->ConnectOutput(taskHFEehCent,1,coutputCent);
+        
+    }
     return NULL;
 }

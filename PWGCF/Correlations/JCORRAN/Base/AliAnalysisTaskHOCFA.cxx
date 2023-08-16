@@ -14,23 +14,22 @@
 **************************************************************************/
 
 #include "AliAnalysisTaskHOCFA.h"
-#include "Riostream.h"
-#include "TList.h"
-#include "TComplex.h"
-#include "TFile.h"
-#include "TH2I.h"
-#include "TH1F.h"
-#include "TH1D.h"
-#include "TH1I.h"
-#include "TProfile.h"
-#include "TMath.h"
-#include <vector>
-#include <TExMap.h>
-#include <TClonesArray.h>
-#include "TDirectoryFile.h"
-#include "TSystem.h"
-#include "AliJBaseTrack.h"
+
 #include <sstream>
+
+#include "Riostream.h"
+#include "TClonesArray.h"
+#include "TComplex.h"
+#include "TH1D.h"
+#include "TH1F.h"
+#include "TH1I.h"
+#include "TList.h"
+#include "TMath.h"
+#include "TProfile.h"
+#include "TString.h"
+#include "TSystem.h"
+
+#include "AliJBaseTrack.h"
 
 using std::cout;
 using std::endl;
@@ -42,12 +41,15 @@ ClassImp(AliAnalysisTaskHOCFA)
 / -------------------------------------------------------------------------- */
 AliAnalysisTaskHOCFA::AliAnalysisTaskHOCFA():
   fInputList(0),
-  fDebugLevel(0),
   fMainList(0),
-  fNCentralityBins(9), fCentrality(-1.), fCentralityBin(-1),
-  fMultiplicity(0), fMultiplicityMin(6),
-  fUseWeights(kTRUE),
-  fNCombi(6)
+  fDebugLevel(0),
+  fMultiplicity(0), fCentrality(-1.),
+  fNCentralityBins(9), fCentralityBin(-1), fMultiplicityMin(10),
+  fPtMin(0.2), fPtMax(5.),
+  fEtaGap(0.), fApplyEtaGap(kFALSE), 
+  fUseWeightsNUE(kTRUE), fUseWeightsNUA(kFALSE), fUseWeightsCent(kFALSE),
+  fNCombi(7), fGetSC(kTRUE), fGetLowerHarmos(kTRUE),
+  fHistoConfig(0)
 {
 // Dummy constructor of the class.
   printf("AliAnalysisTaskHOCFA Dummy constructor\n");
@@ -55,14 +57,17 @@ AliAnalysisTaskHOCFA::AliAnalysisTaskHOCFA():
 }
 
 // ------------------------------------------------------------------------- //
-AliAnalysisTaskHOCFA::AliAnalysisTaskHOCFA(const char *name, Bool_t useWeights):
+AliAnalysisTaskHOCFA::AliAnalysisTaskHOCFA(const char *name):
   fInputList(0),
-  fDebugLevel(0),
   fMainList(0),
-  fNCentralityBins(9), fCentrality(-1.), fCentralityBin(-1),
-  fMultiplicity(0), fMultiplicityMin(6),
-  fUseWeights(kTRUE),
-  fNCombi(6)
+  fDebugLevel(0),
+  fMultiplicity(0), fCentrality(-1.),
+  fNCentralityBins(9), fCentralityBin(-1), fMultiplicityMin(10),
+  fPtMin(0.2), fPtMax(5.),
+  fEtaGap(0.), fApplyEtaGap(kFALSE), 
+  fUseWeightsNUE(kTRUE), fUseWeightsNUA(kFALSE), fUseWeightsCent(kFALSE),
+  fNCombi(7), fGetSC(kTRUE), fGetLowerHarmos(kTRUE),
+  fHistoConfig(0)
 {
 // Constructor of the class.
   printf("AliAnalysisTaskHOCFA Constructor\n");
@@ -84,10 +89,19 @@ AliAnalysisTaskHOCFA::~AliAnalysisTaskHOCFA()
 // ------------------------------------------------------------------------- //
 void AliAnalysisTaskHOCFA::UserCreateOutputObjects()
 {
-// Declare the outputs of the task at the beginning of the analysis.
-  if (fDebugLevel > 1) {printf("AliAnalysisTaskHOCFA::UserCreateOutputObjects() reached\n");}
+// Declare the output of the task at the beginning of the analysis.
+  if (fDebugLevel > 5) {printf("AliAnalysisTaskHOCFA::UserCreateOutputObjects().\n");}
+  BookFinalResults();
 
-  this->BookFinalResults();
+  // Save the configuration of the analysis.
+  fHistoConfig->Fill(0., fMultiplicityMin);
+  fHistoConfig->Fill(1., fPtMin);
+  fHistoConfig->Fill(2., fPtMax);
+  if (fApplyEtaGap) {fHistoConfig->Fill(3., fEtaGap);}
+  if (fUseWeightsNUE) {fHistoConfig->Fill(4., 1.);}
+  if (fUseWeightsNUA) {fHistoConfig->Fill(5., 1.);}
+  if (fGetSC) {fHistoConfig->Fill(6., 1.);}
+  if (fGetLowerHarmos) {fHistoConfig->Fill(7., 1.);}
 }
 
 // ------------------------------------------------------------------------- //
@@ -95,90 +109,116 @@ void AliAnalysisTaskHOCFA::UserExec(Option_t *option)
 {
 // Execute the analysis for each event in the input sample.
 
-// Get the centrality and multiplicity of the trimmed event.
+  // Check if the event has enough tracks for the largest correlator.
+  // If not, we reject it, else we fill the QA for the multiplicity and centrality.
   fMultiplicity = fInputList->GetEntriesFast();
-  fCentralityBin = GetCentralityBin(fCentrality);
-
-// Reject all events with not enough tracks to calculate the correlators.
   if (fMultiplicity < fMultiplicityMin) {return;}
-  fHistoCent[fCentralityBin]->Fill(fCentrality);
+
+  fCentralityBin = GetCentralityBin(fCentrality);
   fHistoMulti[fCentralityBin]->Fill(fMultiplicity);
+  fHistoCent[fCentralityBin]->Fill(fCentrality);
 
-// Get the information on the selected tracks.
-  Double_t *iPhi = new Double_t[fMultiplicity](); // Azimuthal angles of all particles.
-  Double_t *iWeights = new Double_t[fMultiplicity]();  // Particle weights for all particles.
-  Double_t iEffCorr = 1.; // Efficiency (Inverse gives the pT-weight).
-  Double_t iPhiModuleCorr = 1.; // (phi, eta, PVz)-weight.
+// Get the information on all the tracks preselected by the catalyst.
+  double *iEta = new double[fMultiplicity]();
+  double *iPhi = new double[fMultiplicity]();
+  double *iWeights = new double[fMultiplicity]();
+  double iEffCorr = 1.;         // Efficiency (pT-weight = 1/efficiency).
+  double iPhiModuleCorr = 1.;   // (phi, eta, PVz)-weight.
+  float iCentWeight = 1.;       // Centrality weight for LHC15o.
 
-  for (Int_t iTrack = 0; iTrack < fMultiplicity; iTrack++) {
+  for (Long64_t iTrack = 0; iTrack < fMultiplicity; iTrack++) {
     AliJBaseTrack *aTrack = (AliJBaseTrack*)fInputList->At(iTrack);
     if (!aTrack) {continue;}
-
-    fHistoPt[fCentralityBin]->Fill(aTrack->Pt());
-    fHistoEta[fCentralityBin]->Fill(aTrack->Eta());
+    iEta[iTrack] = aTrack->Eta();
     iPhi[iTrack] = aTrack->Phi();
-    fHistoPhi[fCentralityBin]->Fill(iPhi[iTrack]);
-    fHistoCharge[fCentralityBin]->Fill(aTrack->GetCharge());
 
-    if (fUseWeights) {  // Get the NUE/NUA corrections.
-      iEffCorr = aTrack->GetTrackEff();
-      iPhiModuleCorr = aTrack->GetWeight();
-    }
+    if (fUseWeightsNUE) {iEffCorr = aTrack->GetTrackEff();}
+    if (fUseWeightsNUA) {iPhiModuleCorr = aTrack->GetWeight();}
+    if (fDebugLevel > 10) printf("iEffCorr: %.6f iPhiModuleCorr: %.6f \n", iEffCorr, iPhiModuleCorr);
+    if (fUseWeightsCent) {iCentWeight = aTrack->GetCentWeight();} // Same for all tracks in an event.
     iWeights[iTrack] = (1.0/iEffCorr)/iPhiModuleCorr;
-  }
+
+    fHistoPt[fCentralityBin]->Fill(aTrack->Pt(), (1./iEffCorr));
+    fHistoEta[fCentralityBin]->Fill(iEta[iTrack]);
+    fHistoPhi[fCentralityBin]->Fill(iPhi[iTrack], (1./iPhiModuleCorr));
+    fHistoCharge[fCentralityBin]->Fill(aTrack->GetCharge());
+  } // Go to the next track.
+
+// Fill the QA for the centrality*weight for this event.
+  fHistoCentCorrect[fCentralityBin]->Fill(fCentrality, iCentWeight);
 
 // Compute the Q-vectors and multiparticle correlations.
   CalculateQvectors(fMultiplicity, iPhi, iWeights);
-  ComputeAllTerms();
+  ComputeAllTerms(iCentWeight);
+
+// If true, calculate the 2-particle correlators for v1 to v8 using eta gaps.
+  if (fApplyEtaGap) {ComputeEtaGaps(fMultiplicity, iPhi, iWeights, iEta, iCentWeight);}
 
 // Reset the variables for the next event.
   fMultiplicity = 0;
-  delete [] iPhi;
-  delete [] iWeights;
-  iEffCorr = 1.;
-  iPhiModuleCorr = 1.;
+  delete [] iEta; delete [] iPhi; delete [] iWeights;
+  iEffCorr = 1.; iPhiModuleCorr = 1.;
 }
 
 // ------------------------------------------------------------------------- //
 void AliAnalysisTaskHOCFA::Terminate(Option_t *)
 {
 // All the additional steps after the loop over the events.
-  printf("AliAnalysisTaskHOCFA is done! \n");
+  printf("AliAnalysisTaskHOCFA is done!\n");
 }
 
 /* -------------------------------------------------------------------------- /
-/ Methods specific for this class.                                            /
+/ Methods specific to this class.                                             /
 / -------------------------------------------------------------------------- */
 void AliAnalysisTaskHOCFA::InitialiseArrayMembers()
 {
 // Initialise the arrays in the data members.
-  for (Int_t i = 0; i < 16; i++) {
+  for (int i = 0; i < 16; i++) {
     fCentralityList[i] = NULL;
     fCentralityArray[i] = 0.;
+
     fHistoCent[i] = NULL;
+    fHistoCentCorrect[i] = NULL;
     fHistoMulti[i] = NULL;
     fHistoPt[i] = NULL;
     fHistoEta[i] = NULL;
     fHistoPhi[i] = NULL;
     fHistoCharge[i] = NULL;
-    for (Int_t j = 0; j < 6; j++) {fCorrelTerms[j][i] = NULL; fErrorTerms[j][i] = NULL;}
+
+    fCorrel2p[i] = NULL;
+    fCorrel2pEtaGap[i] = NULL;
+    for (int j = 0; j < 7; j++) {
+      fCorrel2h[j][i] = NULL;
+      //fErrorTermsSC3h[j][i] = NULL;
+      //fErrorTermsAC41[j][i] = NULL;
+    }
+    fCorrel3h[i] = NULL;
   }
   fCentralityArray[16] = 0.;
 
-  for (Int_t i = 0; i < 6; i++) {
-    for (Int_t j = 0; j < 3; j++) {fHarmoArray[i][j] = 0;}
+  int harmo2h[13][2] = {{3,2}, {4,2}, {4,3}, {5,2}, {5,3}, {5,4}, {6,2},  // Lower: 7 first.
+                        {6,3}, {6,4}, {7,2}, {7,3}, {8,2}, {8,3}};
+  int powers[13][2] = { {1,1}, {2,0}, {2,1}, {3,0}, {3,1}, {4,0}, {4,1},  // For the 2-h AC.
+                               {0,2}, {1,2}, {0,3}, {1,3}, {0,4}, {1,4}};
+  for (int i = 0; i < 13; i++) {
+    for (int j = 0; j < 2; j++) {
+      fHarmoArray2h[i][j] = harmo2h[i][j];
+      fPowers[i][j] = powers[i][j];
+    }
   }
 
-  Int_t powers[15][3] = { {1,0,0}, {0,1,0}, {0,0,1}, {2,0,0}, {1,1,0}, {1,0,1}, {0,1,1}, {1,1,1}, {2,1,0}, {2,0,1}, {3,0,0}, {2,1,1}, {3,1,0}, {4,0,0}, {4,1,0} };
-  for (Int_t i = 0; i < 15; i++){
-    for (Int_t j = 0; j < 3; j++) {fPowers[i][j] = powers[i][j];}
+  int harmo3h[9][3] = { {2,3,4}, {2,3,5}, {2,4,5}, {2,3,6}, {2,3,7},  // Lower: 3 first.
+                        {2,3,8}, {2,4,6}, {3,4,5}, {3,4,6}};
+  for (int i = 0; i < 9; i++) {
+    for (int j = 0; j < 3; j++) {fHarmoArray3h[i][j] = harmo3h[i][j];}
   }
 
-  for (Int_t iHarmo = 0; iHarmo < 81; iHarmo++) {
-    for (Int_t iPower = 0; iPower < 11; iPower++) {
+  for (int iHarmo = 0; iHarmo < 81; iHarmo++) {
+    for (int iPower = 0; iPower < 11; iPower++) {
       fQvectors[iHarmo][iPower] = TComplex(0., 0.);
     }
   }
+  if (fDebugLevel > 5) {printf("'ArrayMembers' have been initialised.\n");}
 }
 
 // ------------------------------------------------------------------------- //
@@ -187,9 +227,9 @@ void AliAnalysisTaskHOCFA::SetCentralityArray(TString values)
 // Insert the elements of the string into the centrality array.
   printf("Set the centrality binning.\n");
 
-  Float_t value = 0;  // Current centrality value in the string.
-  Int_t index = 0;  // Current index in the array.
-  std::stringstream sString;  // Streamer for the string.
+  float value = 0;              // Current string element.
+  int index = 0;                // Current index in the array.
+  std::stringstream sString;    // Streamer for the string.
   sString << values;
 
 // Get the values in the string one by one.
@@ -201,11 +241,11 @@ void AliAnalysisTaskHOCFA::SetCentralityArray(TString values)
 }
 
 // ------------------------------------------------------------------------- //
-Int_t AliAnalysisTaskHOCFA::GetCentralityBin(Float_t cent)
+int AliAnalysisTaskHOCFA::GetCentralityBin(float myCent)
 {
-// Fetch the bin corresponding to the given centrality.
-  for (Int_t i = 0; i < fNCentralityBins+1; i++) {
-    if (cent >= fCentralityArray[i]) {continue;}
+// Get the bin corresponding to the passed centrality value.
+  for (int i = 0; i < fNCentralityBins+1; i++) {
+    if (myCent >= fCentralityArray[i]) {continue;}
     else {return i-1;}
   }
   return -1;  // Not a valid centrality value.
@@ -214,23 +254,45 @@ Int_t AliAnalysisTaskHOCFA::GetCentralityBin(Float_t cent)
 // ------------------------------------------------------------------------- //
 void AliAnalysisTaskHOCFA::BookFinalResults()
 {
-// Book the needed lists and TProfiles for the results of this analysis.
-  if (fDebugLevel > 1) {printf("AliAnalysisTaskHOCFA::BookFinalResults() reached\n");}
+// Book the needed objects for the analysis results.
+  if (fDebugLevel > 5) {printf("AliAnalysisTaskHOCFA::BookFinalResults() reached.\n");}
   if (!fMainList) {Fatal("AliAnalysisTaskHOCFA::BookFinalResults()", "FATAL: fMainList not found.");}
 
-  for (Int_t i = 0; i < fNCentralityBins; i++) {
-  // Book the needed centrality lists.
+  // Book the configuration profile.
+  fHistoConfig = new TProfile("", "", 8, -0.5, 7.5);
+  fHistoConfig->SetName("fHistoConfig");
+  fHistoConfig->SetTitle("Configuration of the analysis");
+  fHistoConfig->SetStats(kFALSE);
+  fHistoConfig->GetXaxis()->SetBinLabel(1, "Min M");
+  fHistoConfig->GetXaxis()->SetBinLabel(2, "Min pT");
+  fHistoConfig->GetXaxis()->SetBinLabel(3, "Max pT");
+  fHistoConfig->GetXaxis()->SetBinLabel(4, "#eta gap?");
+  fHistoConfig->GetXaxis()->SetBinLabel(5, "NUE?");
+  fHistoConfig->GetXaxis()->SetBinLabel(6, "NUA?");
+  fHistoConfig->GetXaxis()->SetBinLabel(7, "SC?");
+  fHistoConfig->GetXaxis()->SetBinLabel(8, "Lower 2-h?");
+  fMainList->Add(fHistoConfig);
+
+  for (int i = 0; i < fNCentralityBins; i++) {
+    // Book the centrality lists only for the chosen range.
     fCentralityList[i] = new TList();
-    fCentralityList[i]->SetName(Form("Centrality_%.1f-%.1f", fCentralityArray[i], fCentralityArray[i+1]));
+    fCentralityList[i]->SetName(Form("Centrality_%.1f-%.1f",
+      fCentralityArray[i], fCentralityArray[i+1]));
     fCentralityList[i]->SetOwner(kTRUE);
     fMainList->Add(fCentralityList[i]);
 
-  // Book the histograms in the correct lists.
+    // Book the histograms in the correct lists.
     fHistoCent[i] = new TH1F("", "", 100, 0., 100.);
     fHistoCent[i]->SetName(Form("fHistoCent_Bin%d", i));
     fHistoCent[i]->SetTitle(Form("Centrality distribution, bin%d", i));
     fHistoCent[i]->SetStats(kTRUE);
     fCentralityList[i]->Add(fHistoCent[i]);
+
+    fHistoCentCorrect[i] = new TH1F("", "", 100, 0., 100.);
+    fHistoCentCorrect[i]->SetName(Form("fHistoCentCorrect_Bin%d", i));
+    fHistoCentCorrect[i]->SetTitle(Form("Corrected centrality distribution, bin%d", i));
+    fHistoCentCorrect[i]->SetStats(kTRUE);
+    fCentralityList[i]->Add(fHistoCentCorrect[i]);
 
     fHistoMulti[i] = new TH1I("", "", 5000, 0., 5000.);
     fHistoMulti[i]->SetName(Form("fHistoMulti_Bin%d", i));
@@ -240,7 +302,7 @@ void AliAnalysisTaskHOCFA::BookFinalResults()
 
     fHistoPt[i] = new TH1D("", "", 500, 0., 5.);
     fHistoPt[i]->SetName(Form("fHistoPt_Bin%d", i));
-    fHistoPt[i]->SetTitle(Form("Transverse momentum distribution, bin%d", i));
+    fHistoPt[i]->SetTitle(Form("Corrected transverse momentum distribution, bin%d", i));
     fHistoPt[i]->SetStats(kTRUE);
     fCentralityList[i]->Add(fHistoPt[i]);
 
@@ -250,9 +312,9 @@ void AliAnalysisTaskHOCFA::BookFinalResults()
     fHistoEta[i]->SetStats(kTRUE);
     fCentralityList[i]->Add(fHistoEta[i]);
 
-    fHistoPhi[i] = new TH1D("", "", 630, -TMath::Pi(),TMath::Pi());
+    fHistoPhi[i] = new TH1D("", "", 630, -TMath::Pi(), TMath::Pi());
     fHistoPhi[i]->SetName(Form("fHistoPhi_Bin%d", i));
-    fHistoPhi[i]->SetTitle(Form("Azimuthal angle distribution, bin%d", i));
+    fHistoPhi[i]->SetTitle(Form("Corrected azimuthal angle distribution, bin%d", i));
     fHistoPhi[i]->SetStats(kTRUE);
     fCentralityList[i]->Add(fHistoPhi[i]);
 
@@ -262,83 +324,110 @@ void AliAnalysisTaskHOCFA::BookFinalResults()
     fHistoCharge[i]->SetStats(kTRUE);
     fCentralityList[i]->Add(fHistoCharge[i]);
 
-    for (Int_t j = 0; j < fNCombi; j++) {
-      fCorrelTerms[j][i] = new TProfile("", "", 15, 0., 15.);
-      fCorrelTerms[j][i]->SetName(Form("fCorrelTerms_Combi%d%d%d_Bin%d", fHarmoArray[j][0], fHarmoArray[j][1], fHarmoArray[j][2], i));
-      fCorrelTerms[j][i]->Sumw2();
-      fCentralityList[i]->Add(fCorrelTerms[j][i]);
+    // Book the profiles for the resulting correlators.
+    fCorrel2p[i] = new TProfile("", "", 8, 0., 8.);
+    fCorrel2p[i]->SetName(Form("fCorrel2p_Bin%d", i));
+    fCorrel2p[i]->SetTitle(Form("2-p terms, no #Delta #eta, bin%d", i));
+    fCorrel2p[i]->SetStats(kTRUE);
+    fCorrel2p[i]->Sumw2();  // NEW (seems not needed but safer to have it)
+    fCentralityList[i]->Add(fCorrel2p[i]);
 
-      fErrorTerms[j][i] = new TProfile("", "", 35, 0., 35.);
-      fErrorTerms[j][i]->SetName(Form("fErrorTerms_Combi%d%d%d_Bin%d", fHarmoArray[j][0], fHarmoArray[j][1], fHarmoArray[j][2], i));
-      fErrorTerms[j][i]->Sumw2();
-      fCentralityList[i]->Add(fErrorTerms[j][i]);
-    }
-  }
+    fCorrel2pEtaGap[i] = new TProfile("", "", 8, 0., 8.);
+    fCorrel2pEtaGap[i]->SetName(Form("ffCorrel2pEtaGap_Bin%d", i));
+    fCorrel2pEtaGap[i]->SetTitle(Form("2-p terms, |#it{#Delta #eta}| > %.1f, bin%d", fEtaGap, i));
+    fCorrel2pEtaGap[i]->Sumw2();  // NEW (seems not needed but safer to have it)
+    fCorrel2pEtaGap[i]->SetStats(kTRUE);
+    if (fApplyEtaGap) {fCentralityList[i]->Add(fCorrel2pEtaGap[i]);}
+
+    for (int j = 0; j < fNCombi; j++) {   // fNCombi = 1 (SC), 7 (lower AC) or 6 (higher AC).
+      fCorrel2h[j][i] = new TProfile("", "", 13, 0., 13.);
+      if (fGetSC) {
+        fCorrel2h[j][i]->SetName(Form("fCorrel2h_allSC_Bin%d", i));
+        fCorrel2h[j][i]->SetTitle(Form("2-h terms for SC, bin%d", i));
+      } else {
+        if (fGetLowerHarmos) {  // We measure only the 7 first 2-h terms.
+          fCorrel2h[j][i]->SetName(Form("fCorrel2h_AC%d%d_Bin%d",
+            fHarmoArray2h[j][0], fHarmoArray2h[j][1], i));
+           fCorrel2h[j][i]->SetTitle(Form("2-h terms for AC(%d,%d), bin%d",
+            fHarmoArray2h[j][0], fHarmoArray2h[j][1], i));
+        } else {  // Else we measure only the 6 last 2-h terms.
+          fCorrel2h[j][i]->SetName(Form("fCorrel2h_AC%d%d_Bin%d",
+            fHarmoArray2h[j+7][0], fHarmoArray2h[j+7][1], i));
+          fCorrel2h[j][i]->SetTitle(Form("2-h terms for AC(%d,%d), bin%d",
+            fHarmoArray2h[j+7][0], fHarmoArray2h[j+7][1], i));
+        }
+      }   // The names and titles for the 2-h profile have been set.
+      fCorrel2h[j][i]->Sumw2();
+      fCentralityList[i]->Add(fCorrel2h[j][i]);
+    } // Go to the next combination in the list.
+
+    fCorrel3h[i] = new TProfile("", "", 9, 0., 9.);
+    fCorrel3h[i]->SetName(Form("fCorrel3h_Bin%d", i));
+    fCorrel3h[i]->SetTitle(Form("3-h terms for SC, bin%d", i));
+    fCorrel3h[i]->Sumw2();  // NEW    
+    fCorrel3h[i]->SetStats(kTRUE);
+    if (fGetSC) {fCentralityList[i]->Add(fCorrel3h[i]);}
+
+  /*
+    fErrorTermsSC3h[j][i] = new TProfile("", "", 35, 0., 35.);
+    fErrorTermsSC3h[j][i]->SetName(Form("fErrorTermsSC3h_Combi%d%d%d_Bin%d", fHarmoArray[j][0], fHarmoArray[j][1], fHarmoArray[j][2], i));
+    fErrorTermsSC3h[j][i]->Sumw2();
+    if (fGetSC) {fCentralityList[i]->Add(fErrorTermsSC3h[j][i]);}
+
+    fErrorTermsAC41[j][i] = new TProfile("", "", 54, 0., 54.);
+    fErrorTermsAC41[j][i]->SetName(Form("fErrorTermsAC41_Combi%d%d_Bin%d", fHarmoArray[j][0], fHarmoArray[j][1], i));
+    fErrorTermsAC41[j][i]->Sumw2();
+    if (!fGetSC) {fCentralityList[i]->Add(fErrorTermsAC41[j][i]);}
+  */
+    
+  } // Go to the next centrality bin in the list.
 }
 
 // ------------------------------------------------------------------------- //
-void AliAnalysisTaskHOCFA::SetHarmoArray(TString combiString)
+void AliAnalysisTaskHOCFA::CalculateQvectors(Long64_t myMulti,
+  double myAngles[], double myWeights[])
 {
-// Divide the string of harmonics into the different combinations of 3 harmonics.
-  printf("Select the arrays of combinations of harmonics.\n");
+// Calculate the Q-vectors needed for the analysis.
+  double iAngle = 0.;           // Azimuthal angle of the current track.
+  double iWeight = 0.;          // Particle weight of the current track.
+  double iWeightToPowerP = 0.;  // Particle weight rised to the power p.
 
-  Int_t value = 0;  // Current harmonic in the string.
-  Int_t row = 0;  // Current row in the array.
-  Int_t col = 0;  // Current column in the array.
-  std::stringstream sString;  // Streamer for the string.
-  sString << combiString;
-
-// Get the values in the string one by one.
-  while (sString >> value) {
-    fHarmoArray[row][col] = value;
-    if (col == 2) {col = 0; row++;}
-    else {col++;}
-  }
-}
-
-// ------------------------------------------------------------------------- //
-void AliAnalysisTaskHOCFA::CalculateQvectors(Long64_t multiplicity, Double_t angles[], Double_t pWeights[])
-{
-// Calculate the needed Q-vectors.
-  Double_t iAngle = 0.; // Azimuthal angle of the current track.
-  Double_t iWeight = 0.;  // Particle weight of the current track.
-  Double_t iWeightToPowerP = 0.;  // Particle weight rised to the power p.
-
-// Ensure all the Q-vectors are initially zero.
-  for (Int_t iHarmo = 0; iHarmo < 81; iHarmo++){
-    for (Int_t iPower = 0; iPower < 11; iPower++){
+  // Ensure all the Q-vectors are initially zero.
+  for (int iHarmo = 0; iHarmo < 81; iHarmo++) {
+    for (int iPower = 0; iPower < 11; iPower++) {
       fQvectors[iHarmo][iPower] = TComplex(0., 0.);
     }
   }
 
-// Compute the Q-vectors.
-  for (Long64_t iTrack = 0; iTrack < multiplicity; iTrack++){
-    iAngle = angles[iTrack];
-    iWeight = pWeights[iTrack];
-    for (Int_t iHarmo = 0; iHarmo < 81; iHarmo++){
-      for (Int_t iPower = 0; iPower < 11; iPower++){
+  // Compute the Q-vectors themselves.
+  for (Long64_t iTrack = 0; iTrack < myMulti; iTrack++) {
+    iAngle = myAngles[iTrack];
+    iWeight = myWeights[iTrack];
+
+    for (int iHarmo = 0; iHarmo < 81; iHarmo++) {
+      for (int iPower = 0; iPower < 11; iPower++) {
         iWeightToPowerP = TMath::Power(iWeight, iPower);
-        fQvectors[iHarmo][iPower] += TComplex(iWeightToPowerP*TMath::Cos(iHarmo*iAngle), iWeightToPowerP*TMath::Sin(iHarmo*iAngle));
+        fQvectors[iHarmo][iPower] += TComplex(iWeightToPowerP*TMath::Cos(iHarmo*iAngle),
+          iWeightToPowerP*TMath::Sin(iHarmo*iAngle));
       }
     }
-  }
+  } // Go to the next track.
 
-// Reset the variables.
-  iAngle = 0.;
-  iWeight = 0.;
-  iWeightToPowerP = 0.;
+  // Reset the variables.
+  iAngle = 0.; iWeight = 0.; iWeightToPowerP = 0.;
 } 
 
 // ------------------------------------------------------------------------- //
-TComplex AliAnalysisTaskHOCFA::Q(Int_t n, Int_t p)
+TComplex AliAnalysisTaskHOCFA::Q(int n, int p)
 {
 // Alias for fQvectors to make it more easy to use.
   if (n >= 0) {return fQvectors[n][p];}
-  return TComplex::Conjugate(fQvectors[-n][p]); // Use that Q*(n,p) = Q(-n,p).
+  return TComplex::Conjugate(fQvectors[-n][p]); // Use Q*(n,p) = Q(-n,p).
 }
 
 // ------------------------------------------------------------------------- //
-TComplex AliAnalysisTaskHOCFA::CalculateRecursion(Int_t n, Int_t *harmonic, Int_t mult, Int_t skip)
+TComplex AliAnalysisTaskHOCFA::CalculateRecursion(int n, int *harmonic,
+  int mult, int skip)
 {
 // Calculate the multi-particle correlators by using the recursion method.
 // Improved, faster version originally developed by Kristjan Gulbrandsen (gulbrand@nbi.dk).
@@ -375,126 +464,147 @@ TComplex AliAnalysisTaskHOCFA::CalculateRecursion(Int_t n, Int_t *harmonic, Int_
 }
 
 // ------------------------------------------------------------------------- //
-void AliAnalysisTaskHOCFA::ComputeAllTerms()
+void AliAnalysisTaskHOCFA::ComputeAllTerms(float myCentWeight)
 {
 // Compute all the terms needed for the ACs/SCs for all the observables.
   if (fDebugLevel > 5) {printf("Compute all the needed correlators.\n");}
-  Int_t nTerms = 15;  // Number of terms to calculate for the ACs/SCs.
-  Int_t nHarmos = 3;  // Total number of harmonics in an observable.
-  //Int_t powers[nTerms][nHarmos] = { {2,0,0}, {0,2,0}, {0,0,2}, {4,0,0}, {2,2,0}, {2,0,2}, {0,2,2}, {2,2,2}, {4,2,0}, {4,0,2}, {6,0,0}, {4,2,2}, {6,2,0}, {8,0,0}, {8,2,0} };
 
-// Loop over the number of combinations of harmonics to analyse.
-  for (Int_t iCombi = 0; iCombi < fNCombi; iCombi++){
-  // Customise the corresponding TProfile.
-    fCorrelTerms[iCombi][fCentralityBin]->SetTitle(Form("Harmonics: (%d,%d,%d), centrality bin: %d", fHarmoArray[iCombi][0], fHarmoArray[iCombi][1], fHarmoArray[iCombi][2], fCentralityBin));
-    fErrorTerms[iCombi][fCentralityBin]->SetTitle(Form("Errors (format 3-SC), Harmonics: (%d,%d,%d), centrality bin: %d", fHarmoArray[iCombi][0], fHarmoArray[iCombi][1], fHarmoArray[iCombi][2], fCentralityBin));
+  int nPart = 2;        // We start with the case of 2-particle correlations.
+  int lHarmo[7] = {0};  // We work with "symmetric" correlators of max 14 particles > max 7 harmonics.
+  int lPower[2] = {0};  // Powers of {vm2,vn2} for the AC case.
 
-  // Define the variables needed for the error propagation.
-    Int_t i = 0;  // Index for the input array.
-    Double_t inputArray[7] = {0.};   // Array with the single-event correlators needed to get the error propagation terms.
-    Double_t inputWeights[7] = {0.};  // Array with the event weights needed for the error propagation.
-    Double_t* tempData = new Double_t[2]; // Temporary array to output the error-related information.
-
-  // Fill the list of harmonics for the correlator itself.
-    for (Int_t jTerm = 0; jTerm < nTerms; jTerm++) {
-      Int_t jHarmonics[7] = {0}; // Array of harmonics for the recursion.
-      Int_t counter = 0;
-      Int_t nPart = 0;  // Number of particles in the correlator.
-
-      for (Int_t iHarmo = 0; iHarmo < nHarmos; iHarmo++) {
-        if (fPowers[jTerm][iHarmo] == 0) {continue;} // Skip the unneeded harmonics.
-
-        for (Int_t jPower = 0; jPower < fPowers[jTerm][iHarmo]; jPower++) {
-          jHarmonics[counter] = fHarmoArray[iCombi][iHarmo];
-          counter++;
-        }
-
-        nPart += 2*fPowers[jTerm][iHarmo];
-      }
-
-    // Calculate the multiparticle correlator itself using the recursion method.
-      CalculateCorrelator(iCombi, jTerm, nPart, jHarmonics, tempData);
-
-    // Fill the input array to calculate all the terms needed for the error propagation.
-      if ( (jTerm < 8) && (jTerm !=3) ) {
-        inputArray[i] = tempData[0];
-        inputWeights[i] = tempData[1];
-        i++;
-      }
-    }
-
-    // Fill the output array and profile. Note: The filling corresponds to SC(k,l,m) as 2-harmonic SC can be obtained from it.
-    // The list for NSC(k,l,m) contains the same elements in a different order.
-    Double_t outputArray[35] = {inputArray[0], inputArray[1], inputArray[2], inputArray[0]*inputArray[0], inputArray[0]*inputArray[1], inputArray[1]*inputArray[1], inputArray[0]*inputArray[2], inputArray[1]*inputArray[2], inputArray[2]*inputArray[2], inputArray[3], inputArray[0]*inputArray[3], inputArray[1]*inputArray[3], inputArray[2]*inputArray[3], inputArray[3]*inputArray[3], inputArray[4], inputArray[0]*inputArray[4], inputArray[1]*inputArray[4], inputArray[2]*inputArray[4], inputArray[3]*inputArray[4], inputArray[4]*inputArray[4], inputArray[5], inputArray[0]*inputArray[5], inputArray[1]*inputArray[5], inputArray[2]*inputArray[5], inputArray[3]*inputArray[5], inputArray[4]*inputArray[5], inputArray[5]*inputArray[5], inputArray[6], inputArray[0]*inputArray[6], inputArray[1]*inputArray[6], inputArray[2]*inputArray[6], inputArray[3]*inputArray[6], inputArray[4]*inputArray[6], inputArray[5]*inputArray[6], inputArray[6]*inputArray[6]};
-    Double_t outputWeights[35] = {inputWeights[0], inputWeights[1], inputWeights[2], inputWeights[0]*inputWeights[0], inputWeights[0]*inputWeights[1], inputWeights[1]*inputWeights[1], inputWeights[0]*inputWeights[2], inputWeights[1]*inputWeights[2], inputWeights[2]*inputWeights[2], inputWeights[3], inputWeights[0]*inputWeights[3], inputWeights[1]*inputWeights[3], inputWeights[2]*inputWeights[3], inputWeights[3]*inputWeights[3], inputWeights[4], inputWeights[0]*inputWeights[4], inputWeights[1]*inputWeights[4], inputWeights[2]*inputWeights[4], inputWeights[3]*inputWeights[4], inputWeights[4]*inputWeights[4], inputWeights[5], inputWeights[0]*inputWeights[5], inputWeights[1]*inputWeights[5], inputWeights[2]*inputWeights[5], inputWeights[3]*inputWeights[5], inputWeights[4]*inputWeights[5], inputWeights[5]*inputWeights[5], inputWeights[6], inputWeights[0]*inputWeights[6], inputWeights[1]*inputWeights[6], inputWeights[2]*inputWeights[6], inputWeights[3]*inputWeights[6], inputWeights[4]*inputWeights[6], inputWeights[5]*inputWeights[6], inputWeights[6]*inputWeights[6]};
-    for (Int_t iO = 0; iO < 35; iO++) {
-      fErrorTerms[iCombi][fCentralityBin]->Fill((Float_t)iO + 0.5, outputArray[iO], outputWeights[iO]);  // LOKI: What about event weight?
-      fErrorTerms[iCombi][fCentralityBin]->GetXaxis()->SetBinLabel(iO+1, Form("corr%d", iO+1));
-    }
-
-    delete [] tempData;
+  // Fill the profile for the 2-p as it is common to all analysis cases.
+  for (int iBin = 0; iBin < 8; iBin++){
+    lHarmo[0] = iBin+1; // Only the first element needs to be filled in the 2-p case.
+    CalculateCorrelator(nPart, lHarmo, fCorrel2p[fCentralityBin], iBin, lPower, myCentWeight);
   }
+
+  // Fill the 2-harmonic profile according to the analysis configuration.
+  // fNCombi = 1 (for SC, 13 combis in 1 profile), 7 (for lower AC) or 6 (for higher AC).
+  for (int iProf = 0; iProf < fNCombi; iProf++) {
+    for (int iBin = 0; iBin < 13; iBin++) {
+      // Define the number of particles and the harmonics for AC/SC individually.
+      if (fGetSC) {
+        nPart = 4;  // 2-h terms in SC are always 4-particle correlators.
+        lHarmo[0] = fHarmoArray2h[iBin][0];
+        lHarmo[1] = fHarmoArray2h[iBin][1];
+      } else {
+        nPart = 0;  // Reset the number of particles for this bin.
+        int cHarmo = 0; // Current index in the harmonic array.
+        for (int iHarmo = 0; iHarmo < 2; iHarmo++) {
+          if (fPowers[iBin][iHarmo] == 0) {continue;}   // Skip the unneeded harmonics.
+          lPower[iHarmo] = fPowers[iBin][iHarmo];   // We change the power element only if non-zero.
+
+          for (int jPower = 0; jPower < fPowers[iBin][iHarmo]; jPower++) {
+            lHarmo[cHarmo] = fHarmoArray2h[iProf][iHarmo];   // Write the harmo as many times as its power is.
+            cHarmo++;
+          }
+
+          nPart += 2*fPowers[iBin][iHarmo]; // 2-h terms in AC have twice as many particles as their cumulant order.
+        } // Go to the next harmonic of the pair.
+      } // We have the harmonic array and the number of particles at this point.
+      if (fDebugLevel > 5) {printf("Harmo: (%d,%d), nPart: %d\n", lHarmo[0], lHarmo[1], nPart);}
+
+      // Calculate the multiparticle correlator itself using the recursion method.
+      CalculateCorrelator(nPart, lHarmo, fCorrel2h[iProf][fCentralityBin], iBin, lPower, myCentWeight);
+
+      // Reset the variables for safety purposes.
+      lPower[0] = 0.; lPower[1] = 0.;
+    } // Go to the next bin in the current profile.
+  } // Go to the next profile in the array.
+
+  // Fill the 3-harmonic profile only if the analysis is configured for SC.
+  if (fGetSC) {
+    nPart = 6;  // 3-h terms in SC are always 6-particle correlators.
+    for (int iBin = 0; iBin < 9; iBin++) {
+      // Define the harmonic array for this bin.
+      for (int iH = 0; iH < 3; iH++) {lHarmo[iH] = fHarmoArray3h[iBin][iH];}
+
+      // Calculate the multiparticle correlator for this combination of harmonics.
+      CalculateCorrelator(nPart, lHarmo, fCorrel3h[fCentralityBin], iBin, lPower, myCentWeight);
+    } // Go to the next combination of 3 harmonics.
+  }
+
+  // TODO: Calculate the terms needed for the error propagation formulas.
 }
 
 // ------------------------------------------------------------------------- //
-void AliAnalysisTaskHOCFA::CalculateCorrelator(Int_t combi, Int_t bin, Int_t nParticles, Int_t harmonics[],  Double_t *errorTerms)
+void AliAnalysisTaskHOCFA::CalculateCorrelator(int myMulti, int myHarmos[],
+  TProfile *myProfile, int myBin, int myPowers[], float myCentWeight)
 {
 // Calculate the multiparticle correlator corresponding to harmonics[].
-  if (fDebugLevel > 5) {printf("Calculate the correlator for the provided harmonics[].\n");}
+  if (fDebugLevel > 5) {printf("Calculate correlators for the provided harmonics.\n");}
   TComplex cCorrel = TComplex(0., 0.);
-  Double_t eventWeight = 0.;  // Event weight for this correlator.
-  Double_t rCorrel = 0.;
+  double eventWeight = 0.;  // Event weight for this correlator.
+  double rCorrel = 0.;      // Final value to fill in the profile.
 
-  Int_t twoHarmoNum[2] = {harmonics[0], -1*harmonics[0]};
-  Int_t twoHarmoDen[2] = {0};
-  Int_t fourHarmoNum[4] = {harmonics[0], harmonics[1], -1*harmonics[0], -1*harmonics[1]};
-  Int_t fourHarmoDen[4] = {0};
-  Int_t sixHarmoNum[6] = {harmonics[0], harmonics[1], harmonics[2], -1*harmonics[0], -1*harmonics[1], -1*harmonics[2]};
-  Int_t sixHarmoDen[6] = {0};
-  Int_t eightHarmoNum[8] = {harmonics[0], harmonics[1], harmonics[2], harmonics[3], -1*harmonics[0], -1*harmonics[1], -1*harmonics[2], -1*harmonics[3]};
-  Int_t eightHarmoDen[8] = {0};
-  Int_t tenHarmoNum[10] = {harmonics[0], harmonics[1], harmonics[2], harmonics[3], harmonics[4], -1*harmonics[0], -1*harmonics[1], -1*harmonics[2], -1*harmonics[3], -1*harmonics[4]};
-  Int_t tenHarmoDen[10] = {0};
+  int numer2h[2] = {myHarmos[0], -1*myHarmos[0]};
+  int denom2h[2] = {0};
+  int numer4h[4] = {myHarmos[0], myHarmos[1],
+                    -1*myHarmos[0], -1*myHarmos[1]};
+  int denom4h[4] = {0};
+  int numer6h[6] = {myHarmos[0], myHarmos[1], myHarmos[2],
+                    -1*myHarmos[0], -1*myHarmos[1], -1*myHarmos[2]};
+  int denom6h[6] = {0};
+  int numer8h[8] = {myHarmos[0], myHarmos[1], myHarmos[2], myHarmos[3],
+                    -1*myHarmos[0], -1*myHarmos[1], -1*myHarmos[2], -1*myHarmos[3]};
+  int denom8h[8] = {0};
+  int numer10h[10] = {myHarmos[0], myHarmos[1], myHarmos[2], myHarmos[3], myHarmos[4],
+                    -1*myHarmos[0], -1*myHarmos[1], -1*myHarmos[2], -1*myHarmos[3], -1*myHarmos[4]};
+  int denom10h[10] = {0};
 
-// Compute the needed quantities.
-  switch(nParticles) {
-    case 2 :
-      eventWeight = ( CalculateRecursion(2, twoHarmoDen) ).Re();
-      cCorrel = ( CalculateRecursion(2, twoHarmoNum) )/eventWeight;
-      rCorrel = cCorrel.Re();
-      break;
-    case 4 :
-      eventWeight = ( CalculateRecursion(4, fourHarmoDen) ).Re();
-      cCorrel = ( CalculateRecursion(4, fourHarmoNum) )/eventWeight;
-      rCorrel = cCorrel.Re();
-      break;
-    case 6 :    
-      eventWeight = ( CalculateRecursion(6, sixHarmoDen) ).Re();
-      cCorrel = ( CalculateRecursion(6, sixHarmoNum) )/eventWeight;
-      rCorrel = cCorrel.Re();
-      break;
-    case 8 :
-      eventWeight = ( CalculateRecursion(8, eightHarmoDen) ).Re();
-      cCorrel = ( CalculateRecursion(8, eightHarmoNum) )/eventWeight;
-      rCorrel = cCorrel.Re();
-      break;
-    case 10 :
-      eventWeight = ( CalculateRecursion(10, tenHarmoDen) ).Re();
-      cCorrel = ( CalculateRecursion(10, tenHarmoNum) )/eventWeight;
-      rCorrel = cCorrel.Re();
-      break;
-    default :
-      printf("Error: invalid number of particles (odd or larger than ten).\n");
-      break;
+  // Compute the denominator (= event weight) and numerator with the provided harmonics.
+  switch(myMulti) {
+  case 2 :
+    eventWeight = ( CalculateRecursion(2, denom2h) ).Re();
+    cCorrel = ( CalculateRecursion(2, numer2h) )/eventWeight;
+    rCorrel = cCorrel.Re();
+    break;
+  case 4 :
+    eventWeight = ( CalculateRecursion(4, denom4h) ).Re();
+    cCorrel = ( CalculateRecursion(4, numer4h) )/eventWeight;
+    rCorrel = cCorrel.Re();
+    break;
+  case 6 :    
+    eventWeight = ( CalculateRecursion(6, denom6h) ).Re();
+    cCorrel = ( CalculateRecursion(6, numer6h) )/eventWeight;
+    rCorrel = cCorrel.Re();
+    break;
+  case 8 :
+    eventWeight = ( CalculateRecursion(8, denom8h) ).Re();
+    cCorrel = ( CalculateRecursion(8, numer8h) )/eventWeight;
+    rCorrel = cCorrel.Re();
+    break;
+  case 10 :
+    eventWeight = ( CalculateRecursion(10, denom10h) ).Re();
+    cCorrel = ( CalculateRecursion(10, numer10h) )/eventWeight;
+    rCorrel = cCorrel.Re();
+    break;
+  default :
+    printf("Error: invalid number of particles.\n");
+    break;
   }
 
-// Fill the corresponding bin in the right TProfile.
-  fCorrelTerms[combi][fCentralityBin]->Fill( (Float_t)bin + 0.5, rCorrel, eventWeight );
-  fCorrelTerms[combi][fCentralityBin]->GetXaxis()->SetBinLabel(bin+1, Form("{%d,%d,%d}", fPowers[bin][0], fPowers[bin][1], fPowers[bin][2]));
+  // Fill the corresponding bin in the right TProfile.
+  myProfile->Fill( (float)myBin + 0.5, rCorrel, eventWeight*myCentWeight );
 
+  if (myMulti == 2) {   // Bins are filled with v1-v8.
+    myProfile->GetXaxis()->SetBinLabel(myBin+1, Form("v_{%d}", myBin+1));
+  } else if (fGetSC) {
+    if (myMulti == 4) {  // Bins are filled with 2-h combinations.
+      myProfile->GetXaxis()->SetBinLabel(myBin+1, Form("(%d,%d)", myHarmos[0], myHarmos[1]));
+    } else {
+      myProfile->GetXaxis()->SetBinLabel(myBin+1, Form("(%d,%d,%d)", myHarmos[0], myHarmos[1], myHarmos[2]));
+    }
+  } else {  // Bins are filled with the power patterns.
+    myProfile->GetXaxis()->SetBinLabel(myBin+1, Form("{%d,%d}", myPowers[0], myPowers[1]));
+  }
+
+/*
 // Fill the temporary informations.
   errorTerms[0] = rCorrel;
   errorTerms[1] = eventWeight;
+*/
 
 // Reset the local variables for the next call.
   cCorrel = TComplex(0., 0.);
@@ -503,3 +613,67 @@ void AliAnalysisTaskHOCFA::CalculateCorrelator(Int_t combi, Int_t bin, Int_t nPa
 }
 
 // ------------------------------------------------------------------------- //
+void AliAnalysisTaskHOCFA::ComputeEtaGaps(Long64_t multiplicity,
+  double angles[], double pWeights[], double pseudorapidity[], float myCentWeight)
+{
+// Calculate the two-particle correlators (v1..v8) with a given eta gap.
+  if (fDebugLevel > 5) {printf("Calculate 2-particle correlators with eta gap'.\n");}
+  TComplex Qminus[8] = {TComplex(0., 0.)};  // Q-vectors for the negative subevent.
+  float Mminus[8] = {0.};                   // Multiplicity of the negative subevent.
+  TComplex Qplus[8] = {TComplex(0., 0.)};
+  float Mplus[8] = {0.};
+
+  float iAngle = 0.;      // Azimuthal angle.
+  float iEta = 0.;        // Pseudorapidity.
+  float iWeight = 1.;     // Particle weight.
+  float iWeightToP = 1.;  // Particle weight raised to the power p.
+
+  TComplex cCorrel = TComplex(0., 0.);
+  double rCorrel = 0.;
+
+  for (Long64_t iPart = 0; iPart < multiplicity; iPart++) {
+    // Read the information for the current track.
+    iAngle  = angles[iPart];
+    iWeight = pWeights[iPart];
+    iEta    = pseudorapidity[iPart];
+    if (fUseWeightsNUE || fUseWeightsNUA) {iWeightToP = iWeight;}
+
+    // Compute the Q-vectors for each subevent.
+    if (iEta < 0.) {
+      for (int iHarmo = 0; iHarmo < 8; iHarmo++) {
+        // Compute only if the particle belongs to the subevent.
+        if (iEta < ((-0.5)*fEtaGap)) {
+          Qminus[iHarmo] += TComplex(iWeightToP*TMath::Cos((iHarmo+1)*iAngle),
+            iWeightToP*TMath::Sin((iHarmo+1)*iAngle));
+          Mminus[iHarmo] += iWeightToP;
+        }
+      }
+
+    } else if (iEta > 0.) {
+      for (int iHarmo = 0; iHarmo < 8; iHarmo++) {
+        if (iEta > 0.5*fEtaGap) {
+          Qplus[iHarmo] += TComplex(iWeightToP*TMath::Cos((iHarmo+1)*iAngle),
+            iWeightToP*TMath::Sin((iHarmo+1)*iAngle));
+          Mplus[iHarmo] += iWeightToP;
+        }
+      }
+
+    } else {continue;}  // Case iEta = 0.
+  }   // All the particles have been treated.
+
+  // Compute the two-particle correlators themselves.
+  for (int iHarmo = 0; iHarmo < 8; iHarmo++) {
+    if (!( (Qminus[iHarmo].TComplex::Rho() > 0.) && (Qplus[iHarmo].TComplex::Rho() > 0.) )) {continue;}
+    if (!( (Mminus[iHarmo] > 0.) && (Mplus[iHarmo] > 0.) )) {continue;}
+
+    cCorrel = Qminus[iHarmo]*TComplex::Conjugate(Qplus[iHarmo]);
+    rCorrel = (cCorrel.Re())/(Mminus[iHarmo]*Mplus[iHarmo]);
+    fCorrel2pEtaGap[fCentralityBin]->Fill((float)iHarmo + 0.5, rCorrel, Mminus[iHarmo]*Mplus[iHarmo]*myCentWeight);
+    fCorrel2pEtaGap[fCentralityBin]->GetXaxis()->SetBinLabel(iHarmo + 1, Form("v_{%d}", iHarmo+1));
+
+    // Reset the correlators to prevent mixing between harmonics.
+    cCorrel = TComplex(0., 0.);
+    rCorrel = 0.;
+  }
+// All the 2-particle correlators with eta gaps have been calculated.
+}

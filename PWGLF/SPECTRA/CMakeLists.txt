@@ -40,7 +40,6 @@ set(SRCS
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskMKBase.cxx
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskMKTest.cxx
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskTPCMatchEff.cxx
-  ChargedHadrons/dNdPt/Framework/AliAnalysisTaskDCArStudy.cxx
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskPtResStudy.cxx
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskEffContStudy.cxx
   ChargedHadrons/dNdPt/Framework/AliAnalysisTaskUEStudy.cxx
@@ -59,7 +58,10 @@ set(SRCS
   PiKaPr/TPC/rTPC/AliAnalysisTaskPPvsRT_TPCTOF.cxx
   PiKaPr/TPC/rTPC/AliAnalysisTaskSpectraRT.cxx
   PiKaPr/TPC/rTPC/AliAnalysisTaskSpectraMC.cxx
+  PiKaPr/TPC/rTPC/AliAnalysisTaskGenRT.cxx
   PiKaPr/TPCTOF/AliAnalysisCombinedHadronSpectra.cxx
+  PiKaPr/TPCTOF/AliAnalysisTaskAntiProtons_vs_Rapidity_Data.cxx
+  PiKaPr/TPCTOF/AliAnalysisTaskAntiProtons_vs_Rapidity_Simu.cxx
   PiKaPr/TPCTOFpA/AliAnalysisTPCTOFpA.cxx
   PiKaPr/TPCTOFfits/AliAnalysisPIDEvent.cxx
   PiKaPr/TPCTOFfits/AliAnalysisPIDParticle.cxx
@@ -94,6 +96,8 @@ set(SRCS
   Kinks/AliAnalysisTaskKinksFilimon.cxx
   Kinks/AliAnalysisKinkESDat13.cxx
   Kinks/AliAnalysisKinkESDMC13.cxx
+  Kinks/AliAnalysisKinkESDat13ppHM.cxx
+  Kinks/AliAnalysisKinkESDMulPPpi.cxx
   Kinks/AliAnalysisKinkTaskMult13pp.cxx
   Kinks/AliAnalysisKinkTaskMult13ppMC.cxx
   Kinks/AliAnalysisTaskKinkpp5TeV.cxx
@@ -116,6 +120,7 @@ set(SRCS
   MultEvShape/AliMEStrackInfo.cxx
   MultEvShape/AliMESbaseTask.cxx
   MultEvShape/AliMEStender.cxx
+  MultEvShape/AliMESpp13.cxx
   MultEvShape/AliMESpidTask.cxx
   MultEvShape/AliMESchgTask.cxx
   MultEvShape/AliMESppColTask.cxx
@@ -124,6 +129,7 @@ set(SRCS
   AntiprotonToProton/train/AliAnalysisTaskProton.cxx
   AntiprotonToProton/train/AliAnalysisTaskProtonQA.cxx
   AntiprotonToProton/train/AliAnalysisTaskProtonAbsorbtion.cxx
+  Spherocity/AliAnalysisTaskS0.cxx
   Spherocity/AliTransverseEventShape.cxx
   Spherocity/AliSpherocityEstimator.cxx
   Spherocity/AliSpherocityUtils.cxx
@@ -131,8 +137,8 @@ set(SRCS
 )
 if(${ROOT_VERSION} GREATER_EQUAL 6.0)
   list(APPEND SRCS ChargedHadrons/MultDepSpec/AliMultDepSpecAnalysisTask.cxx)
-  list(APPEND SRCS ChargedHadrons/MultDepSpec/AliMultDepSpecAnalysisTaskOLD.cxx)
-  list(APPEND SRCS ChargedHadrons/MultDepSpec/AliMultDepSpecAnalysisTaskUE.cxx)
+  list(APPEND SRCS ChargedHadrons/MultDepSpec/AliMultDepSpecOnTheFlyAnalysisTask.cxx)
+  list(APPEND SRCS ChargedHadrons/dNdPt/Framework/AliAnalysisTaskDCArStudy.cxx)
   list(APPEND SRCS ChargedHadrons/dNdPt/Framework/AliAnalysisTaskCutStudies.cxx)
   list(APPEND SRCS ChargedHadrons/dNdPt/Framework/AliAnalysisTaskSpectraEtaPhi.cxx)
   list(APPEND SRCS ChargedHadrons/dNdPt/Framework/AliAnalysisTaskSpectraINEL0.cxx)
@@ -142,6 +148,10 @@ endif()
 
 # Headers from sources
 string(REPLACE ".cxx" ".h" HDRS "${SRCS}")
+
+if(${ROOT_VERSION} GREATER_EQUAL 6.0)
+  list(APPEND HDRS ChargedHadrons/MultDepSpec/AliAnalysisHelpersHist.h)
+endif()
 
 # Extra files to include in the PARfile
 set(PAR_EXTRAFILES_CXX
@@ -214,11 +224,7 @@ install(TARGETS ${MODULE}
         LIBRARY DESTINATION lib)
 
 install(FILES ${HDRS} DESTINATION include)
-install(FILES PiKaPr/TestAOD/HistogramsBoth.h PiKaPr/TestAOD/Histograms.h DESTINATION include)
-
-if(${ROOT_VERSION} GREATER_EQUAL 6.0)
-  install(FILES ChargedHadrons/MultDepSpec/AliAnalysisHelpersHist.h DESTINATION include)
-endif()
+install(FILES PiKaPr/TestAOD/HistogramNamesBoth.h PiKaPr/TestAOD/HistogramNames.h PiKaPr/TestAOD/HistogramsBoth.h PiKaPr/TestAOD/Histograms.h DESTINATION include)
 
 # install macros
 install(DIRECTORY ChargedHadrons/MultDepSpec/macros DESTINATION  PWGLF/SPECTRA/ChargedHadrons/MultDepSpec)

@@ -120,6 +120,7 @@ AliAnalysisTaskHyperTriton2He3piML::AliAnalysisTaskHyperTriton2He3piML(
       fUseCustomBethe{false},
       fCustomBethe{0.f, 0.f, 0.f, 0.f, 0.f},
       fCustomResolution{1.f},
+      fHistCentTrigger{nullptr},
       fHistNsigmaHe3{nullptr},
       fHistNsigmaPi{nullptr},
       fHistInvMass{nullptr},
@@ -246,6 +247,9 @@ void AliAnalysisTaskHyperTriton2He3piML::UserCreateOutputObjects()
   fListHist->SetOwner();
   fEventCuts.AddQAplotsToList(fListHist);
 
+  fHistCentTrigger =
+      new TH2D("fHistCentTrigger", ";Centrality;trigger", 1000, 0, 100, 32, 0, 32);
+
   fHistNsigmaPi =
       new TH2D("fHistNsigmaPi", ";#it{p}_{T} (GeV/#it{c});n_{#sigma} TPC Pion; Counts", 100, 0, 10, 80, -5, 5);
   fHistNsigmaHe3 =
@@ -260,6 +264,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserCreateOutputObjects()
   fHistTrackletDThetaDPhi = new TH2D("fHistTrackletDThetaDPhi", "; #Delta#theta_{trkl}; #Delta#phi_{trkl} (rad); Counts", 60, -0.3, 0.3, 60, -0.3, 0.3);
   fHistTrackletCosP = new TH1D("fHistTrackletCosP", "; cos #theta_{P,trkl}; Counts", 100, 0.0, 1.0);
 
+  fListHist->Add(fHistCentTrigger);
   fListHist->Add(fHistNsigmaPi);
   fListHist->Add(fHistNsigmaHe3);
   fListHist->Add(fHistInvMass);
@@ -313,6 +318,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserCreateOutputObjects()
 
   fFatParticle = fLambda ? AliPID::kProton : fNucleus;
   fHyperPDG = fLambda ? 3122 : (fNucleus == AliPID::kHe3 ? 1010010030 : 1010010040);
+  fV0Vertexer.fNucleus = fNucleus;
 } // end UserCreateOutputObjects
 
 void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
@@ -322,7 +328,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
 
   if (fSaveFileNames)
     fCurrentEventNumber = esdEvent->GetHeader()->GetEventNumberInFile();
-  
+
   if (!vEvent)
   {
     ::Fatal("AliAnalysisTaskHyperTriton2He3piML::UserExec",
@@ -330,7 +336,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
     return;
   }
 
-  
+
   AliMCEvent *mcEvent = MCEvent();
   if (!mcEvent && fMC)
   {
@@ -338,7 +344,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
     return;
   }
 
-  
+
   if (!fEventCuts.AcceptEvent(vEvent))
   {
     PostData(1, fListHist);
@@ -346,7 +352,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
     return;
   }
 
-  
+
   if (fSaveFileNames)
   {
     if (fCurrentFileName.String() != CurrentFileName())
@@ -354,7 +360,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
       fCurrentFileName = CurrentFileName();
     }
   }
-  
+
   double primaryVertex[3];
   fRCollision.fCent = fEventCuts.GetCentrality(fCentralityEstimator);
   fEventCuts.GetPrimaryVertex()->GetXYZ(primaryVertex);
@@ -380,9 +386,11 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
     tgr |= kHighMultV0;
   int magField = vEvent->GetMagneticField() > 0 ? kPositiveB : 0;
 
-  
+
   fPIDResponse = fInputHandler->GetPIDResponse();
   fRCollision.fTrigger = tgr + magField;
+
+  fHistCentTrigger->Fill(fRCollision.fCent, fRCollision.fTrigger);
 
   /// For the event mixing
   int centBin = std::floor((fRCollision.fCent - 1.e4)/ 10);
@@ -615,7 +623,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
 
   std::vector<AliESDv0> V0Vector;
   if (!fUseOnTheFly && !fUseNanoAODs)
-  { 
+  {
     if(!fLambda)
       esdEvent->ResetV0s();
     if (!fEnableEventMixing)
@@ -631,7 +639,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
   }
 
   int nV0s = (fUseOnTheFly || fUseNanoAODs) ? esdEvent->GetNumberOfV0s() : V0Vector.size();
-  
+
   for (int iV0 = 0; iV0 < nV0s; iV0++)
   { // This is the begining of the V0 loop (we analyse only offline
     // V0s)
@@ -691,7 +699,7 @@ void AliAnalysisTaskHyperTriton2He3piML::UserExec(Option_t *)
       Bool_t isFilled = FillHyperCandidate(v0, vEvent, mcEvent, mcMap, pP, nP, lKeyPos, lKeyNeg, v0part, he3index);
       if (!isFilled)
         continue;
-      
+
       double x{v0->AliAODv0::DecayVertexV0X()}, y{v0->AliAODv0::DecayVertexV0Y()}, z{v0->AliAODv0::DecayVertexV0Z()};
       v0part.fDecayX = x - fRCollision.fX;
       v0part.fDecayY = y - fRCollision.fY;

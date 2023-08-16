@@ -30,9 +30,28 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const int part)
       fMCPhi(0),
       fIDTracks(0),
       fCharge(0),
+      fSoftPionPx(0),
+      fSoftPionPy(0),
+      fSoftPionPz(0),
       fCPA(0),
       fInvMass(0),
       fOrigin(kUnknown),
+      fIsPrim(true),
+      fParticleMult(-1),
+      fIsRemovedByOldPC(false),
+      fIsRemovedByNewPC(false),
+      fIsRemovedByCrossPC(false),
+      fMult(0),
+      fZVtx(0),
+      fBkgScore(0),
+      fPromptScore(0),
+      fNSigTPC(0),
+      fNSigTOF(0),
+      fNCls(0),
+      fNCrossedRows(0),
+      fDCAZ(0),
+      fDCAXY(0),
+      fDzeroLabel(0),
       fPDGCode(0),
       fMCPDGCode(0),
       fPDGMotherWeak(0),
@@ -64,9 +83,28 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const AliFemtoDreamBasePart &part)
       fMCPhi(part.fMCPhi),
       fIDTracks(part.fIDTracks),
       fCharge(part.fCharge),
+      fSoftPionPx(part.fSoftPionPx),
+      fSoftPionPy(part.fSoftPionPy),
+      fSoftPionPz(part.fSoftPionPz),
       fCPA(part.fCPA),
       fInvMass(part.fInvMass),
       fOrigin(part.fOrigin),
+      fIsPrim(part.fIsPrim),
+      fParticleMult(part.fParticleMult),
+      fIsRemovedByOldPC(part.fIsRemovedByOldPC),
+      fIsRemovedByNewPC(part.fIsRemovedByNewPC),
+      fIsRemovedByCrossPC(part.fIsRemovedByCrossPC),
+      fMult(part.fMult),
+      fZVtx(part.fZVtx),
+      fBkgScore(part.fBkgScore),
+      fPromptScore(part.fPromptScore),
+      fNSigTPC(part.fNSigTPC),
+      fNSigTOF(part.fNSigTOF),
+      fNCls(part.fNCls),
+      fNCrossedRows(part.fNCrossedRows),
+      fDCAZ(part.fDCAZ),
+      fDCAXY(part.fDCAXY),
+      fDzeroLabel(part.fDzeroLabel),
       fPDGCode(part.fPDGCode),
       fMCPDGCode(part.fMCPDGCode),
       fPDGMotherWeak(part.fPDGMotherWeak),
@@ -102,9 +140,28 @@ AliFemtoDreamBasePart &AliFemtoDreamBasePart::operator=(
   fMCPhi = obj.fMCPhi;
   fIDTracks = obj.fIDTracks;
   fCharge = obj.fCharge;
+  fSoftPionPx = obj.fSoftPionPx,
+  fSoftPionPy = obj.fSoftPionPy,
+  fSoftPionPz = obj.fSoftPionPz,
   fCPA = obj.fCPA;
   fInvMass = obj.fInvMass;
   fOrigin = obj.fOrigin;
+  fIsPrim = obj.fIsPrim;
+  fParticleMult = obj.fParticleMult,
+  fIsRemovedByOldPC = obj.fIsRemovedByOldPC,
+  fIsRemovedByNewPC = obj.fIsRemovedByNewPC,
+  fIsRemovedByCrossPC = obj.fIsRemovedByCrossPC,
+  fMult = obj.fMult,
+  fZVtx = obj.fZVtx,
+  fBkgScore = obj.fBkgScore,
+  fPromptScore = obj.fPromptScore,
+  fNSigTPC = obj.fNSigTPC,
+  fNSigTOF = obj.fNSigTOF,
+  fNCls = obj.fNCls,
+  fNCrossedRows = obj.fNCrossedRows,
+  fDCAZ = obj.fDCAZ,
+  fDCAXY = obj.fDCAXY,
+  fDzeroLabel = obj.fDzeroLabel,
   fPDGCode = obj.fPDGCode;
   fMCPDGCode = obj.fMCPDGCode;
   fPDGMotherWeak = obj.fPDGMotherWeak;
@@ -139,9 +196,28 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(
       fMCPhi(),
       fIDTracks(),
       fCharge(0),
+      fSoftPionPx(0),
+      fSoftPionPy(0),
+      fSoftPionPz(0),
       fCPA(0),
       fInvMass(gamma->GetPhotonMass()),
       fOrigin(kUnknown),
+      fIsPrim(true),
+      fParticleMult(-1),
+      fIsRemovedByOldPC(false),
+      fIsRemovedByNewPC(false),
+      fIsRemovedByCrossPC(false),
+      fMult(0),
+      fZVtx(0),
+      fBkgScore(0),
+      fPromptScore(0),
+      fNSigTPC(0),
+      fNSigTOF(0),
+      fNCls(0),
+      fNCrossedRows(0),
+      fDCAZ(0),
+      fDCAXY(0),
+      fDzeroLabel(0),
       fPDGCode(),
       fMCPDGCode(),
       fPDGMotherWeak(0),
@@ -229,9 +305,28 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const AliAODRecoDecayHF *dmeson,
       fMCPhi(),
       fIDTracks(),
       fCharge(),
+      fSoftPionPx(0),
+      fSoftPionPy(0),
+      fSoftPionPz(0),
       fCPA(dmeson->Eta()),
-      fInvMass(dmeson->InvMass(pdgChildren.size(), &pdgChildren[0])),
+      fInvMass(0),
       fOrigin(kUnknown),
+      fIsPrim(true),
+      fParticleMult(-1),
+      fIsRemovedByOldPC(false),
+      fIsRemovedByNewPC(false),
+      fIsRemovedByCrossPC(false),
+      fMult(0),
+      fZVtx(0),
+      fBkgScore(0),
+      fPromptScore(0),
+      fNSigTPC(0),
+      fNSigTOF(0),
+      fNCls(0),
+      fNCrossedRows(0),
+      fDCAZ(0),
+      fDCAXY(0),
+      fDzeroLabel(0),
       fPDGCode(0),
       fMCPDGCode(0),
       fPDGMotherWeak(0),
@@ -248,10 +343,21 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const AliAODRecoDecayHF *dmeson,
   fTheta.push_back(dmeson->Theta());
   fPhi.push_back(dmeson->Phi());
   fCharge.push_back(dmeson->Charge());
+  if (pdgParent != 413) {
+    fInvMass = dmeson->InvMass(pdgChildren.size(), &pdgChildren[0]);
+  } else {
+    fInvMass = dynamic_cast<const AliAODRecoCascadeHF *>(dmeson)->DeltaInvMass();
+  }
 
   std::vector<float> phiAtRadii;
   for (size_t iChild = 0; iChild < pdgChildren.size(); iChild++) {
-    AliAODTrack *track = (AliAODTrack *) dmeson->GetDaughter(iChild);
+    AliAODTrack *track;
+    if (pdgParent != 413 || iChild == 0) {
+      track = (AliAODTrack *) dmeson->GetDaughter(iChild);
+    } else {
+      AliAODRecoDecayHF2Prong *dzero = dynamic_cast<const AliAODRecoCascadeHF *>(dmeson)->Get2Prong();
+      track = (AliAODTrack *) dzero->GetDaughter(iChild-1);
+    }
     SetMomentum(iChild + 1, { track->Px(), track->Py(), track->Pz() });
     fIDTracks.push_back(track->GetID());
     fEta.push_back(track->Eta());
@@ -261,6 +367,11 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const AliAODRecoDecayHF *dmeson,
     PhiAtRadii(track, aod->GetMagneticField(), phiAtRadii);
     fPhiAtRadius.push_back(phiAtRadii);
     fCharge.push_back(track->Charge());
+    if (pdgParent == 413 ) {
+      fSoftPionPx = track->Px();
+      fSoftPionPy = track->Py();
+      fSoftPionPz = track->Pz();
+    }
   }
 
   // MC Matching
@@ -268,12 +379,23 @@ AliFemtoDreamBasePart::AliFemtoDreamBasePart(const AliAODRecoDecayHF *dmeson,
       AliAODMCParticle::StdBranchName()));
   if (mcarray) {
     // dmeson->InvMass needs unsigned int*, this one needs a const int* (and does TMath::Abs() on that). Great.
-    int PDGDaug[pdgChildren.size()];
-    for (size_t iChild = 0; iChild < pdgChildren.size(); iChild++) {
-      PDGDaug[iChild] = pdgChildren.at(iChild);
+    int label;
+    if (pdgParent != 413) {
+      int PDGDaug[pdgChildren.size()];
+      for (size_t iChild = 0; iChild < pdgChildren.size(); iChild++) {
+        PDGDaug[iChild] = pdgChildren.at(iChild);
+      }
+      label = dmeson->MatchToMC(std::abs(pdgParent), mcarray,
+                                pdgChildren.size(), PDGDaug);
+    } else {
+      //easier to hardcode the Dstar PDG decay codes than to provide them as argument
+      int pdgD0Dau[2] = {321, 211};
+      int pdgDstarDau[2] = {421, 211};
+      label = dynamic_cast<const AliAODRecoCascadeHF *>(dmeson)->MatchToMC(413, 421, pdgDstarDau, pdgD0Dau, mcarray, false);
+      auto d0to2prong = dynamic_cast<const AliAODRecoCascadeHF *>(dmeson)->Get2Prong();
+      fDzeroLabel = d0to2prong->MatchToMC(421, mcarray, 2, pdgD0Dau);
     }
-    const int label = dmeson->MatchToMC(std::abs(pdgParent), mcarray,
-                                        pdgChildren.size(), PDGDaug);
+
     if (label < 0) {
       this->SetParticleOrigin(AliFemtoDreamBasePart::kFake);
     } else {
@@ -449,6 +571,7 @@ void AliFemtoDreamBasePart::DumpParticleInformation() {
   std::cout << "CPA: " << fCPA << "\n";
   std::cout << "Invariant mass " << fInvMass << "\n";
   std::cout << "Origin " << fOrigin << "\n";
+  std::cout << "is primary " << fIsPrim << "\n";
   std::cout << "PDG code " << fPDGCode << "\n";
   std::cout << "MC PDG code " << fMCPDGCode << "\n";
   std::cout << "PDG Mother weak " << fPDGMotherWeak << "\n";

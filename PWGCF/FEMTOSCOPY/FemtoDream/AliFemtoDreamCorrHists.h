@@ -11,6 +11,7 @@
 #include "TH1F.h"
 #include "TH2F.h"
 #include "TList.h"
+#include "THnSparse.h"
 
 #include "AliFemtoDreamCollConfig.h"
 #include "AliFemtoDreamBasePart.h"
@@ -40,6 +41,10 @@ class AliFemtoDreamCorrHists {
   ;
   bool GetDokTandMultPtBinning() {
     return fDokTandMultPtBinning;
+  }
+  ;
+  bool GetDokTandMultMCTrueBinning() {
+    return fDokTandMultMCTrueBinning;
   }
   ;
   bool GetDomTBinning() {
@@ -77,6 +82,9 @@ class AliFemtoDreamCorrHists {
   bool GetDoAncestorsPlots() {
     return fAncestors;
   }
+  bool GetDopTOnepTTwokStarPlotsmT() {
+    return fpTOnepTTwokStarPlotsmT;
+  }
   void FillSameEventDist(int i, float RelK) {
     fSameEventDist[i]->Fill(RelK);
   }
@@ -101,11 +109,17 @@ class AliFemtoDreamCorrHists {
   void FillSameEventkTandMultDist(int i, float kT, float RelK, int multBin) {
     fSameEventkTandMultDist[i][multBin]->Fill(RelK, kT);
   }
+  void FillSameEventkTandMultMCTrueDist(int i, float kT, float RelK, int multBin) {
+    fSameEventkTandMultMCTrueDist[i][multBin]->Fill(RelK, kT);
+  }
   void FillSameEventkTandMultPtDist(int i, float kT, float pT, int multBin) {
     fSameEventkTandMultPtDist[i][multBin]->Fill(pT, kT);
   }
   void FillMixedEventkTandMultDist(int i, float kT, float RelK, int multBin) {
     fMixedEventkTandMultDist[i][multBin]->Fill(RelK, kT);
+  }
+  void FillMixedEventkTandMultMCTrueDist(int i, float kT, float RelK, int multBin) {
+    fMixedEventkTandMultMCTrueDist[i][multBin]->Fill(RelK, kT);
   }
   void FillSameEventmTDist(int i, float mT, float RelK) {
     if (fSameEventmTDist[i])
@@ -274,6 +288,13 @@ class AliFemtoDreamCorrHists {
       fMixedEventmTDist[i]->Fill(RelK, mT);
   }
   void FillMixedEventmTMultDist(int i, float mT, int iMult, float RelK);
+
+  void FillSameEventmTMultDistCommon(int i, float mT, int iMult, float RelK);
+  void FillSameEventmTMultDistNonCommon(int i, float mT, int iMult, float RelK);
+
+  void FillSameEventpTOnepTTwokStar(int iHist, float mT, float pTOne, float pTTwo, float RelK); 
+  void FillMixedEventpTOnepTTwokStar(int iHist, float mT, float pTOne, float pTTwo, float RelK);
+
   void FillPartnersSE(int hist, int nPart1, int nPart2) {
     if (!fMinimalBooking)
       fPairCounterSE[hist]->Fill(nPart1, nPart2);
@@ -411,6 +432,7 @@ class AliFemtoDreamCorrHists {
   TH2F **fSameEventkTDist;
   TH2F ***fSameEventkTandMultDist;
   TH2F ***fSameEventkTandMultPtDist;
+  TH2F ***fSameEventkTandMultMCTrueDist;
   TH2F ***fSameEventkTCentDist;
   TH2F ***fSameEventmTMultDist;
   TH2F **fPtQADist;
@@ -438,6 +460,7 @@ class AliFemtoDreamCorrHists {
   TH2F **fMixedEventmTvsMultDist;
   TH2F **fMixedEventkTDist;
   TH2F ***fMixedEventkTandMultDist;
+  TH2F ***fMixedEventkTandMultMCTrueDist;
   TH2F ***fMixedEventkTCentDist;
   TH2F ***fMixedEventmTMultDist;
   TH2F **fPairCounterME;
@@ -467,14 +490,18 @@ class AliFemtoDreamCorrHists {
   TH2F **fSameEventMultDistNonCommon;
   TH2F **fSameEventmTDistCommon;
   TH2F **fSameEventmTDistNonCommon;
+  TH2F ***fSameEventmTMultDistCommon;
+  TH2F ***fSameEventmTMultDistNonCommon;
 
-
+  TH2F ***fSameEventpTOnepTTwokStar; //to-do: change back to THnSparseF for more dimensions
+  TH2F ***fMixedEventpTOnepTTwokStar;
 
 
   bool fDoMultBinning;
   bool fDoCentBinning;
   bool fDokTandMultBinning;
   bool fDokTandMultPtBinning;
+  bool fDokTandMultMCTrueBinning;
   bool fDokTBinning;
   bool fDomTBinning;
   bool fmTMultPlots;
@@ -485,11 +512,13 @@ class AliFemtoDreamCorrHists {
   bool fPhiEtaPlotsSmallK;
   bool fmTDetaDPhi;
   bool fAncestors;
+  bool fpTOnepTTwokStarPlotsmT;
+  double fpTOnepTTwokStarCutOff;
   std::vector<int> fPDGCode;
   std::vector<float> fmTBins;
   std::vector<unsigned int> fWhichPairs;
   std::vector<int> fCentBins;
-  ClassDef(AliFemtoDreamCorrHists,10);
+  ClassDef(AliFemtoDreamCorrHists,13);
 };
 
 #endif /* ALIFEMTODREAMCORRHISTS_H_ */

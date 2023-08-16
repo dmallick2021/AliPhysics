@@ -39,6 +39,13 @@
 #pragma link C++ class AliDhCorrelationExtraction+;
 #pragma link C++ class AliAnalysisHFEHCorrOnFlySim+;
 
+#if ROOT_VERSION_CODE >= ROOT_VERSION(6,0,0)
+#pragma link C++ class AliHFMLResponseLambdactopKpi+;
+#pragma link C++ class AliHFMLResponseLambdactopK0s+;
+#pragma link C++ class AliAnalysisTaskSELambdacCorrelations+;
+#pragma link C++ class AliAnalysisTaskSELcTopK0sCorrelations+;
+#endif
+
 #if ROOT_VERSION_CODE > ROOT_VERSION(6,4,0)
 #pragma link C++ namespace AliDHFeCorr+;
 #pragma link C++ typedef AliDHFeCorr::AliDMeson+;

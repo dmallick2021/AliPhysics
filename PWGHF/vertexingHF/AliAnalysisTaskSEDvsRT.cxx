@@ -32,6 +32,8 @@
 #include <TH3F.h>
 #include <THnSparse.h>
 #include <TProfile.h>
+#include "AliAODMCParticle.h"
+#include "AliAODMCHeader.h"
 #include "AliAnalysisManager.h"
 #include "AliRDHFCuts.h"
 #include "AliRDHFCutsDplustoKpipi.h"
@@ -55,6 +57,7 @@
 #include "AliESDUtils.h"
 
 
+
 //________________________________________________________________________
 AliAnalysisTaskSEDvsRT::AliAnalysisTaskSEDvsRT():
    AliAnalysisTaskSE(),
@@ -74,12 +77,22 @@ AliAnalysisTaskSEDvsRT::AliAnalysisTaskSEDvsRT():
    fNChargedInToward(0),
    fNChargedInAway(0),
    fNCharged(0),
+   fPhiDistribution(0),
+   fEtaDistribution(0),
+   fPTDistributionInToward(0),
+   fPTDistributionInTransverse(0),
+   fPTDistributionInAway(0),
+   fPTDistributionGlobal(0),
+   fPhiDistributionGlobalTracks(0),
+   fPhiDistributionComplementaryTracks(0),
+   fPhiDistributionHybridTracks(0),
+   fPhiEtaDistributionHybridTracks(0),
    fCounter(0),
    fReadMC(kFALSE),
    fMCOption(0),
    fUseBit(kTRUE),
    fAODProtection(0),
-   fPdgSpecies(411),
+   fPdgSpecies(421),
    fLctoV0(kFALSE),
    fisPPbData(kFALSE),
    fEtaCut(1.5),
@@ -89,6 +102,10 @@ AliAnalysisTaskSEDvsRT::AliAnalysisTaskSEDvsRT():
    fPtvsMassvsRTToward(0),
    fPtvsMassvsRTAway(0),
    fPtvsMassvsRTTrans(0),
+   fPtvsMassvsRTMC(0),
+   fTrackFilterGlobal(0),
+   fTrackFilterComplementary(0),
+   fUseHybridTracks(kTRUE),
    fUseNsparse(kFALSE),
    fOutNsparse(0)
 
@@ -115,12 +132,22 @@ AliAnalysisTaskSEDvsRT::AliAnalysisTaskSEDvsRT(const char *name, Int_t pdgSpecie
    fNChargedInToward(0),
    fNChargedInAway(0),
    fNCharged(0),
+   fPhiDistribution(0),
+   fEtaDistribution(0),
+   fPTDistributionInToward(0),
+   fPTDistributionInTransverse(0),
+   fPTDistributionInAway(0),
+   fPTDistributionGlobal(0),
+   fPhiDistributionGlobalTracks(0),
+   fPhiDistributionComplementaryTracks(0),
+   fPhiDistributionHybridTracks(0),
+   fPhiEtaDistributionHybridTracks(0),
    fCounter(0),
    fReadMC(kFALSE),
    fMCOption(0),
    fUseBit(kTRUE),
    fAODProtection(0),
-   fPdgSpecies(pdgSpecies),
+   fPdgSpecies(421),
    fLctoV0(kFALSE),
    fisPPbData(kFALSE),
    fEtaCut(1.5),
@@ -130,6 +157,10 @@ AliAnalysisTaskSEDvsRT::AliAnalysisTaskSEDvsRT(const char *name, Int_t pdgSpecie
    fPtvsMassvsRTToward(0),
    fPtvsMassvsRTAway(0),
    fPtvsMassvsRTTrans(0),
+   fPtvsMassvsRTMC(0),
+   fTrackFilterGlobal(0),
+   fTrackFilterComplementary(0),
+   fUseHybridTracks(kTRUE),
    fUseNsparse(kFALSE),
    fOutNsparse(0)
    {
@@ -281,9 +312,12 @@ void AliAnalysisTaskSEDvsRT::UserCreateOutputObjects()
 
    fPtvsMassvsRTTrans = new TH3D("hPtvsMassvsRTTrans", "D candidates in transverse region: p_{T} vs mass vs R_{T};R_{T};Mass [GeV/c^{2}];p_{T} [GeV/c}",nRTbins,firstRTbin,lastRTbin, fNMassBins, fLowmasslimit, fUpmasslimit, nPTbins, ptmin, ptmax);
 
+   fPtvsMassvsRTMC = new TH3D("hPtvsMassvsRTMC", "MC D candidates in toward region: p_{t} vs mass vs RT; RT; Mass M [GeV/c^{2}]; p_{t} [GeV/c]",nRTbins,firstRTbin,lastRTbin,fNMassBins,fLowmasslimit,fUpmasslimit,nPTbins,ptmin,ptmax);
+
    fOutput->Add(fPtvsMassvsRTToward);
    fOutput->Add(fPtvsMassvsRTAway);
    fOutput->Add(fPtvsMassvsRTTrans);
+   fOutput->Add(fPtvsMassvsRTMC);
 
 
    fHistNEvents = new TH1F("fHistNEvents", "number of events ",12,-0.5,11.5);
@@ -324,87 +358,114 @@ void AliAnalysisTaskSEDvsRT::UserCreateOutputObjects()
 
    ///settings for track filter used in RT determination
   AliESDtrackCuts* esdTrackCutsRun2[18] = {0};
-
-  for ( int iTc = 0 ; iTc < 18 ; iTc++ )
-  {
+  AliESDtrackCuts* esdTrackCutsGlobal[18] = {0};
+  AliESDtrackCuts* esdTrackCutsComplementary[18] = {0};
+  if (!fUseHybridTracks){
+    for ( int iTc = 0 ; iTc < 18 ; iTc++ )
+      {
 	// standar parameters ------------------- //
-    double maxdcaz = 2.;
-    double minratiocrossrowstpcover = 0.8;
-    double maxfraclusterstpcshared = 0.4;
-    double maxchi2perclustertpc = 4.0;
-    double maxchi2perclusterits = 36.;
-    double geowidth = 3.;
-    double geolenght = 130.;
-    double maxchi2tpcglobal = 36.;
+	double maxdcaz = 2.;
+	double minratiocrossrowstpcover = 0.8;
+	double maxfraclusterstpcshared = 0.4;
+	double maxchi2perclustertpc = 4.0;
+	double maxchi2perclusterits = 36.;
+	double geowidth = 3.;
+	double geolenght = 130.;
+	double maxchi2tpcglobal = 36.;
 	// ------------------------------------- //
 
 	// variations of the track cuts -------- //
-    if ( iTc == 1) maxdcaz = 1.0;
-    if ( iTc == 2) maxdcaz = 5.0;
-    if ( iTc == 5) minratiocrossrowstpcover = 0.7;
-    if ( iTc == 6) minratiocrossrowstpcover = 0.9;
-    if ( iTc == 7) maxfraclusterstpcshared = 0.2;
-    if ( iTc == 8) maxfraclusterstpcshared = 1.0;
-    if ( iTc == 9) maxchi2perclustertpc = 3.0;
-    if ( iTc == 10) maxchi2perclustertpc = 5.0;
-    if ( iTc == 11) maxchi2perclusterits = 25.0;
-    if ( iTc == 12) maxchi2perclusterits = 49.0;
-    if ( iTc == 14) geowidth = 2.0;
-    if ( iTc == 15) geowidth = 4.0;
-    if ( iTc == 16) geolenght = 120.0;
-    if ( iTc == 17) geolenght = 140.0;
-
+	if ( iTc == 1) maxdcaz = 1.0;
+	if ( iTc == 2) maxdcaz = 5.0;
+	if ( iTc == 5) minratiocrossrowstpcover = 0.7;
+	if ( iTc == 6) minratiocrossrowstpcover = 0.9;
+	if ( iTc == 7) maxfraclusterstpcshared = 0.2;
+	if ( iTc == 8) maxfraclusterstpcshared = 1.0;
+	if ( iTc == 9) maxchi2perclustertpc = 3.0;
+	if ( iTc == 10) maxchi2perclustertpc = 5.0;
+	if ( iTc == 11) maxchi2perclusterits = 25.0;
+	if ( iTc == 12) maxchi2perclusterits = 49.0;
+	if ( iTc == 14) geowidth = 2.0;
+	if ( iTc == 15) geowidth = 4.0;
+	if ( iTc == 16) geolenght = 120.0;
+	if ( iTc == 17) geolenght = 140.0;
 	// variations of the track cuts -------- //
+	fTrackFilter[iTc] = new AliAnalysisFilter(Form("fTrackFilter%d",iTc));
+	esdTrackCutsRun2[iTc] = new AliESDtrackCuts(Form("esdTrackCutsRun2%d",iTc));
+	// TPC
+	esdTrackCutsRun2[iTc]->SetCutGeoNcrNcl(geowidth,geolenght,1.5,0.85,0.7);
+	esdTrackCutsRun2[iTc]->SetRequireTPCRefit(kTRUE);
+	esdTrackCutsRun2[iTc]->SetMinRatioCrossedRowsOverFindableClustersTPC(minratiocrossrowstpcover);
+	esdTrackCutsRun2[iTc]->SetMaxChi2PerClusterTPC(maxchi2perclustertpc);
+	esdTrackCutsRun2[iTc]->SetMaxFractionSharedTPCClusters(maxfraclusterstpcshared);
+	//esdTrackCutsRun2[iTc]->SetMaxChi2TPCConstrainedGlobal(maxchi2tpcglobal); TODO VZ: check this cut
+	// ITS
+	esdTrackCutsRun2[iTc]->SetRequireITSRefit(kTRUE);
+	if ( iTc != 13 )
+	  esdTrackCutsRun2[iTc]->SetClusterRequirementITS(AliESDtrackCuts::kSPD,AliESDtrackCuts::kAny);
+	esdTrackCutsRun2[iTc]->SetMaxChi2PerClusterITS(maxchi2perclusterits);
+	// primary selection
+	esdTrackCutsRun2[iTc]->SetDCAToVertex2D(kFALSE);
+	esdTrackCutsRun2[iTc]->SetRequireSigmaToVertex(kFALSE);
+	esdTrackCutsRun2[iTc]->SetMaxDCAToVertexZ(maxdcaz);
+	esdTrackCutsRun2[iTc]->SetAcceptKinkDaughters(kFALSE);
+	if ( iTc == 3 )
+	  // esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("4*(0.0026+0.0050/pt^1.01)");
+	  esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("6.5*(0.0026+0.0050/pt^1.01)");
+	else if ( iTc == 4 )
+	  // esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("10*(0.0026+0.0050/pt^1.01)");
+	  esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("7.5*(0.0026+0.0050/pt^1.01)");
+	else
+	  esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("0.0182+0.0350/pt^1.01"); // (7*(------))
+	fTrackFilter[iTc]->AddCuts(esdTrackCutsRun2[iTc]);
+      }
+  } else {//end if on usage of hybrid tracks
+	fTrackFilterGlobal = new AliAnalysisFilter("fTrackFilterGlobal0");
+	esdTrackCutsGlobal[0] = new AliESDtrackCuts("esdTrackCutsRunGlobal0"); //use other slots for systematic if needed;
+	esdTrackCutsGlobal[0]->SetMinNCrossedRowsTPC(70);
+	esdTrackCutsGlobal[0]->SetMinRatioCrossedRowsOverFindableClustersTPC(0.8);
+	esdTrackCutsGlobal[0]->SetMaxChi2PerClusterTPC(4);
+	esdTrackCutsGlobal[0]->SetAcceptKinkDaughters(kFALSE);
+	esdTrackCutsGlobal[0]->SetRequireTPCRefit(kTRUE);
+	esdTrackCutsGlobal[0]->SetRequireITSRefit(kTRUE);
+	esdTrackCutsGlobal[0]->SetClusterRequirementITS(AliESDtrackCuts::kSPD, AliESDtrackCuts::kAny);
+	esdTrackCutsGlobal[0]->SetMaxDCAToVertexXYPtDep("0.0105+0.0350/pt^1.1");
+	esdTrackCutsGlobal[0]->SetMaxDCAToVertexZ(2);
+	esdTrackCutsGlobal[0]->SetDCAToVertex2D(kFALSE);
+	esdTrackCutsGlobal[0]->SetRequireSigmaToVertex(kFALSE);
+	esdTrackCutsGlobal[0]->SetMaxChi2PerClusterITS(36);
+	esdTrackCutsGlobal[0]->SetEtaRange(-0.8,0.8);
+	fTrackFilterGlobal->AddCuts(esdTrackCutsGlobal[0]);
 
+	fTrackFilterComplementary = new AliAnalysisFilter("fTrackFilterComplementary0");
+	esdTrackCutsComplementary[0] = new AliESDtrackCuts("esdTrackCutsRunComplementary0"); //use other slots for systematic if needed;
 
-    fTrackFilter[iTc] = new AliAnalysisFilter(Form("fTrackFilter%d",iTc));
-    if (iTc != 0) esdTrackCutsRun2[iTc] = new AliESDtrackCuts(Form("esdTrackCutsRun2%d",iTc));
-
-    // TPC
-    if (iTc != 0) { //variations using ITS-TPC
-    esdTrackCutsRun2[iTc]->SetCutGeoNcrNcl(geowidth,geolenght,1.5,0.85,0.7);
-    esdTrackCutsRun2[iTc]->SetRequireTPCRefit(kTRUE);
-    esdTrackCutsRun2[iTc]->SetMinRatioCrossedRowsOverFindableClustersTPC(minratiocrossrowstpcover);
-    esdTrackCutsRun2[iTc]->SetMaxChi2PerClusterTPC(maxchi2perclustertpc);
-    esdTrackCutsRun2[iTc]->SetMaxFractionSharedTPCClusters(maxfraclusterstpcshared);
-    //esdTrackCutsRun2[iTc]->SetMaxChi2TPCConstrainedGlobal(maxchi2tpcglobal); TODO VZ: check this cut
-    // ITS
-    esdTrackCutsRun2[iTc]->SetRequireITSRefit(kTRUE);
-    if ( iTc != 13 )
-    esdTrackCutsRun2[iTc]->SetClusterRequirementITS(AliESDtrackCuts::kSPD,AliESDtrackCuts::kAny);
-
-    esdTrackCutsRun2[iTc]->SetMaxChi2PerClusterITS(maxchi2perclusterits);
-
-    // primary selection
-    esdTrackCutsRun2[iTc]->SetDCAToVertex2D(kFALSE);
-    esdTrackCutsRun2[iTc]->SetRequireSigmaToVertex(kFALSE);
-    esdTrackCutsRun2[iTc]->SetMaxDCAToVertexZ(maxdcaz);
-    esdTrackCutsRun2[iTc]->SetAcceptKinkDaughters(kFALSE);
-
-    if ( iTc == 3 )
-      // esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("4*(0.0026+0.0050/pt^1.01)");
-    	esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("6.5*(0.0026+0.0050/pt^1.01)");
-    else if ( iTc == 4 )
-      // esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("10*(0.0026+0.0050/pt^1.01)");
-    	esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("7.5*(0.0026+0.0050/pt^1.01)");
-    else
-      esdTrackCutsRun2[iTc]->SetMaxDCAToVertexXYPtDep("0.0182+0.0350/pt^1.01"); // (7*(------))
-    }
-    else { //Default: TPC-only track filter
-      esdTrackCutsRun2[iTc] = AliESDtrackCuts::GetStandardTPCOnlyTrackCuts();
-    }
-
-
-
-    fTrackFilter[iTc]->AddCuts(esdTrackCutsRun2[iTc]);
+	esdTrackCutsComplementary[0]->SetMinNCrossedRowsTPC(70);
+	esdTrackCutsComplementary[0]->SetMinRatioCrossedRowsOverFindableClustersTPC(0.8);
+	esdTrackCutsComplementary[0]->SetMaxChi2PerClusterTPC(4);
+	esdTrackCutsComplementary[0]->SetAcceptKinkDaughters(kFALSE);
+	esdTrackCutsComplementary[0]->SetRequireTPCRefit(kTRUE);
+	esdTrackCutsComplementary[0]->SetRequireITSRefit(kTRUE);
+	esdTrackCutsComplementary[0]->SetClusterRequirementITS(AliESDtrackCuts::kSPD, AliESDtrackCuts::kOff);
+	esdTrackCutsComplementary[0]->SetMaxDCAToVertexXYPtDep("0.0105+0.0350/pt^1.1");
+	esdTrackCutsComplementary[0]->SetMaxDCAToVertexZ(2);
+	esdTrackCutsComplementary[0]->SetDCAToVertex2D(kFALSE);
+	esdTrackCutsComplementary[0]->SetRequireSigmaToVertex(kFALSE);
+	esdTrackCutsComplementary[0]->SetMaxChi2PerClusterITS(36);
+	esdTrackCutsComplementary[0]->SetEtaRange(-0.8,0.8);
+	fTrackFilterComplementary->AddCuts(esdTrackCutsComplementary[0]);
   }
-
-
    fListQAhists = new TList();
    fListQAhists->SetOwner();
    fListQAhists->SetName("QAhists");
 
-   fGlobalRT = new TH1F("fGlobalRT","RT for all events;R_{T};Entries",100,0,10);
+   const Int_t nRTBinsforDouble = 100;
+   Double_t RTEdgeforDouble[nRTBinsforDouble + 1] = {0};
+   for(Int_t i = 0; i <= nRTBinsforDouble; i++){
+   RTEdgeforDouble[i] = i/fAveMultiInTrans-1/(2*fAveMultiInTrans);
+   }
+
+   fGlobalRT = new TH1F("fGlobalRT","RT for all events;R_{T};Entries",nRTBinsforDouble,RTEdgeforDouble);
    fHistPtLead = new TH1F("fHistPtLead","pT distribution of leading track;p_{T} (GeV/c);Entries",100,0,100);
    fRTvsZvtxvsMult= new TH3F("fRTvsZvtxvsMult","RT vs Zvtx vs mult;R_{T};Z_{vtx} (cm);N_{trk}",100,0,10,200,-10,10,200,0,200);
 
@@ -413,6 +474,18 @@ void AliAnalysisTaskSEDvsRT::UserCreateOutputObjects()
    fNChargedInAway = new TH1F("fNChargedInAway","Charged Tracks in Away region;N_{ch};Entries",200,0,200);
    fNCharged = new TH1F("fNCharged","Charged Tracks in all regions;N_{ch};Entries",200,0,200);
 
+   fPhiDistribution = new TH1F("fPhiDistribution","Phi distribution of all charged particles",320,0,6.4);
+   fEtaDistribution = new TH1F("fEtaDistribution","Eta distribution of all charged particles",400,-5,5);
+
+   fPTDistributionInToward = new TH1F("fPTDistributionInToward","pT distribution of all charged particles in Toward region",250,0,50);
+   fPTDistributionInTransverse = new TH1F("fPTDistributionInTransverse","pT distribution of all charged particles in Transverse region",250,0,50);
+   fPTDistributionInAway = new TH1F("fPTDistributionInAway","pT distribution of all charged particles in Away region",250,0,50);
+   fPTDistributionGlobal = new TH1F("fPTDistributionGlobal","pT distribution of all charged particles in all regions",250,0,50);
+
+   fPhiDistributionGlobalTracks = new TH1F("fPhiDistributionGlobalTracks","Phi distribution of selected global tracks", 320, 0., 6.4);
+   fPhiDistributionComplementaryTracks = new TH1F("fPhiDistributionComplementaryTracks","Phi distribution of selected complementary tracks", 320, 0., 6.4);
+   fPhiDistributionHybridTracks = new TH1F("fPhiDistributionHybridTracks","Phi distribution of selected hybrid tracks", 320, 0., 6.4);
+   fPhiEtaDistributionHybridTracks = new TH2F("fPhiEtaDistributionHybridTracks","PhiEta distribution of selected hybrid tracks", 320, 0., 6.4, 320, -1, 1);
    fListQAhists->Add(fGlobalRT);
    fListQAhists->Add(fHistPtLead);
    fListQAhists->Add(fRTvsZvtxvsMult);
@@ -420,8 +493,16 @@ void AliAnalysisTaskSEDvsRT::UserCreateOutputObjects()
    fListQAhists->Add(fNChargedInToward);
    fListQAhists->Add(fNChargedInAway);
    fListQAhists->Add(fNCharged);
-
-
+   fListQAhists->Add(fPhiDistribution);
+   fListQAhists->Add(fEtaDistribution);
+   fListQAhists->Add(fPTDistributionInToward);
+   fListQAhists->Add(fPTDistributionInTransverse);
+   fListQAhists->Add(fPTDistributionInAway);
+   fListQAhists->Add(fPTDistributionGlobal);
+   fListQAhists->Add(fPhiDistributionGlobalTracks);
+   fListQAhists->Add(fPhiDistributionComplementaryTracks);
+   fListQAhists->Add(fPhiDistributionHybridTracks);
+   fListQAhists->Add(fPhiEtaDistributionHybridTracks);
    PostData(1,fOutput);
    PostData(3,fOutputCounters);
    PostData(4,fListQAhists);
@@ -438,15 +519,15 @@ void AliAnalysisTaskSEDvsRT::UserExec(Option_t */*option*/)
    AliESDEvent *esd = dynamic_cast<AliESDEvent*> (InputEvent());
    //  AliAODTracklets* tracklets = aod->GetTracklets();
    //Int_t ntracklets = tracklets->GetNumberOfTracklets();
-   if(fAODProtection>=0){
+   //if(fAODProtection>=0){
     //   Protection against different number of events in the AOD and deltaAOD
     //   In case of discrepancy the event is rejected.
-    Int_t matchingAODdeltaAODlevel = AliRDHFCuts::CheckMatchingAODdeltaAODevents();
-    if (matchingAODdeltaAODlevel<0 || (matchingAODdeltaAODlevel==0 && fAODProtection==1)) {
+    //Int_t matchingAODdeltaAODlevel = AliRDHFCuts::CheckMatchingAODdeltaAODevents();
+    //if (matchingAODdeltaAODlevel<0 || (matchingAODdeltaAODlevel==0 && fAODProtection==1)) {
       // AOD/deltaAOD trees have different number of entries || TProcessID do not match while it was required
-      return;
-    }
-  }
+    //  return;
+  //  }
+  //}
 
 
   TClonesArray *arrayCand = 0;
@@ -454,39 +535,12 @@ void AliAnalysisTaskSEDvsRT::UserExec(Option_t */*option*/)
   UInt_t pdgDau[3];
   Int_t nDau=0;
   Int_t selbit=0;
-  if(fPdgSpecies==411){
-    arrayName="Charm3Prong";
-    pdgDau[0]=211; pdgDau[1]=321; pdgDau[2]=211;
-    nDau=3;
-    selbit=AliRDHFCuts::kDplusCuts;
-  }else if(fPdgSpecies==421){
+
     arrayName="D0toKpi";
     pdgDau[0]=211; pdgDau[1]=321; pdgDau[2]=0;
     nDau=2;
     selbit=AliRDHFCuts::kD0toKpiCuts;
-  }else if(fPdgSpecies==413){
-    arrayName="Dstar";
-    pdgDau[0]=321; pdgDau[1]=211; pdgDau[2]=0; // Quoting here D0 daughters (D* ones on another variable later)
-    nDau=2;
-    selbit=AliRDHFCuts::kDstarCuts;
-  }else if(fPdgSpecies==431){
-    arrayName="Charm3Prong";
-    pdgDau[0]=321; pdgDau[1]=321; pdgDau[2]=211;
-    nDau=3;
-    selbit=AliRDHFCuts::kDsCuts;
-  }else if(fPdgSpecies==4122){
-    if(fLctoV0){
-    arrayName="CascadesHF";
-    pdgDau[0]=211; pdgDau[1]=211; pdgDau[2]=0; // Quoting here K0S daughters (Lc ones on another variable later)
-    nDau=2;
-    selbit=AliRDHFCuts::kLctoV0Cuts;
-    }else{
-    arrayName="Charm3Prong";
-    pdgDau[0]=2212; pdgDau[1]=321; pdgDau[2]=211;
-    nDau=3;
-    selbit=AliRDHFCuts::kLcCuts;
-    }
-  }
+
 
 //Arrays of daughters for inv mass calculation
     UInt_t pdgdaughtersD0[2] = {211,321}; //pi, K
@@ -567,11 +621,6 @@ void AliAnalysisTaskSEDvsRT::UserExec(Option_t */*option*/)
   Double_t weight = 1.; //dummy weight for filling (needed later?)
   //!----l.839-888: multiplicity correction
 
-
-
-
-//l.948-1094: MC multiplicity counting/reweighting
-
   Int_t nCand = arrayCand->GetEntriesFast();
   Int_t nSelectedNoPID=0,nSelectedPID=0,nSelectedInMassPeak=0;
   Double_t mD0PDG    = TDatabasePDG::Instance()->GetParticle(421)->Mass();
@@ -585,30 +634,23 @@ void AliAnalysisTaskSEDvsRT::UserExec(Option_t */*option*/)
 
   // PDG of daughters for Lc2pK0
   UInt_t pdgDgLctopK0S[2] = {2212, 310};
- //Load MC info if MC
-TClonesArray *arrayMC=0;
+  //Load MC info if MC
+  TClonesArray *arrayMC=0;
   AliAODMCHeader *mcHeader=0;
 
   Double_t nchWeight=1.0;
 
+     //Double_t nchWeight=1.0;
   // load MC particles
   if(fReadMC){
+     arrayMC =  (TClonesArray*)aod->GetList()->FindObject(AliAODMCParticle::StdBranchName());
 
-    //arrayMC =  (TClonesArray*)aod->GetList()->FindObject(AliAODMCParticle::StdBranchName());
-    if(!arrayMC) {
+if(!arrayMC) {
       printf("AliAnalysisTaskSEDvsMultiplicity::UserExec: MC particles branch not found!\n");
-      return;
+return;
     }
-    // load MC header
-   // mcHeader =  (AliAODMCHeader*)aod->GetList()->FindObject(AliAODMCHeader::StdBranchName());
-    if(!mcHeader) {
-      printf("AliAnalysisTaskSEDvsMultiplicity::UserExec: MC header branch not found!\n");
-      return;
-    }
- }
-   // omitting "aveMult" l.1110
 
-  //TODO:  Loop on candidates, perform selection, !!determine phi of candidate wrt leading particle, fill corresponding histo (toward/away)
+}
 
   for (Int_t iCand = 0; iCand < nCand; iCand++) {  //Loop over candidates
 
@@ -636,17 +678,20 @@ TClonesArray *arrayMC=0;
      Double_t rapid = d->Y(fPdgSpecies);
      Bool_t isInFidAcc = fRDCutsAnalysis->IsInFiducialAcceptance(ptCand,rapid);
      if (!isInFidAcc) continue;
-     TClonesArray *arrayMC =0;
+     //TClonesArray *arrayMC =0;
      Int_t labD = -1;
+
      if(fReadMC) {
       if(fPdgSpecies==413){
          labD = dCascade->MatchToMC(fPdgSpecies,421,(Int_t*)pdgDgDStartoD0pi,(Int_t*)pdgDau,arrayMC);
       } else if(fPdgSpecies==4122 && fLctoV0){
          labD = dCascade->MatchToMC(fPdgSpecies,pdgDgLctopK0S[1],(Int_t*)pdgDgLctopK0S,(Int_t*)pdgDau,arrayMC,kTRUE);
       } else {
+
          labD = d->MatchToMC(fPdgSpecies,arrayMC,nDau,(Int_t*)pdgDau);
       }
-      // FillMCMassHistos(arrayMC,labD, countMult,nchWeight);  ////!TODO be implemented
+
+       FillMCMassHistos(arrayMC,labD, fPhiLeading,rtval,nchWeight);  ////!TODO be implemented
      }
 
      Int_t passAllCuts = 0, passTopolCuts = 0;
@@ -754,7 +799,7 @@ TClonesArray *arrayMC=0;
          Double_t fDeltaPhiMinCut = TMath::DegToRad()*60.;
          Double_t fDeltaPhiMaxCut = TMath::DegToRad()*120.;
          Int_t region = 0;
-         if ((candDeltaPhi < -fDeltaPhiMinCut) && (candDeltaPhi > 2*fDeltaPhiMaxCut)) region = -1; //left
+         if ((candDeltaPhi < -fDeltaPhiMinCut) || (candDeltaPhi > 2*fDeltaPhiMaxCut)) region = -1; //left
          if ((candDeltaPhi >  fDeltaPhiMinCut) && (candDeltaPhi < fDeltaPhiMaxCut))   region = 1; //right
 
          if ((candDeltaPhi > -fDeltaPhiMinCut) && (candDeltaPhi < fDeltaPhiMinCut))   region = 2; // toward
@@ -794,6 +839,7 @@ Double_t AliAnalysisTaskSEDvsRT::CalculateRTVal(AliAODEvent* esdEvent)
 
    const Int_t nESDTracks = esdEvent->GetNumberOfTracks();
    TObjArray *fCTSTracks = new TObjArray();
+   //TObjArray *fCTSTracksHybrid = new TObjArray();
    Double_t nRecTracks = 0;
    AliVParticle* part = 0x0;
    Double_t eta, pt, LeadingPt = -1;
@@ -809,8 +855,9 @@ Double_t AliAnalysisTaskSEDvsRT::CalculateRTVal(AliAODEvent* esdEvent)
       for ( Int_t i = 0; i < 1; i++)
       {
          UInt_t selectDebug = 0;
-         if (fTrackFilter[i])
+         if (!fUseHybridTracks && fTrackFilter[i])
          {
+	   //printf(">>>>>>> I am using the old track selections.. \n");
             selectDebug = fTrackFilter[i]->IsSelected(part);
             if (!selectDebug)
             {
@@ -818,10 +865,24 @@ Double_t AliAnalysisTaskSEDvsRT::CalculateRTVal(AliAODEvent* esdEvent)
             }
             /// fill tracks array
             fCTSTracks->Add(part);
+	    fPhiDistributionGlobalTracks->Fill(part->Phi());
             if (!part) continue;
-         }
+         } else if (fUseHybridTracks && fTrackFilterGlobal && fTrackFilterComplementary ){
+	   //printf(">>>>>>> I am using the hybrid track selections.. \n");
+	   if(fTrackFilterGlobal->IsSelected(part)) {
+	     fCTSTracks->Add(part);
+	     fPhiDistributionGlobalTracks->Fill(part->Phi());
+       fPhiDistributionHybridTracks->Fill(part->Phi());
+       fPhiEtaDistributionHybridTracks->Fill(part->Phi(),eta);
+	   }else if(fTrackFilterComplementary->IsSelected(part)) {
+	     fCTSTracks->Add(part);
+	     fPhiDistributionComplementaryTracks->Fill(part->Phi());
+       fPhiDistributionHybridTracks->Fill(part->Phi());
+       fPhiEtaDistributionHybridTracks->Fill(part->Phi(),eta);
+	   } else {continue;}
+	 }
       }
-   }
+   } //end loop on tracks
 
    //find leading object
    TObjArray *LeadingTrackReco = FindLeading(fCTSTracks);
@@ -834,7 +895,7 @@ Double_t AliAnalysisTaskSEDvsRT::CalculateRTVal(AliAODEvent* esdEvent)
          //Sorting
          TObjArray *regionSortedParticlesReco = SortRegions((AliVParticle*)LeadingTrackReco->At(0), fCTSTracks);
 
-         //Checking multiplicity in toward and away regions
+         //Checking multiplicity in toward and away regionsf
          TList *NChargedInToward = (TList*)regionSortedParticlesReco->At(0);
          TList *NChargedInAway = (TList*)regionSortedParticlesReco->At(1);
          TList *NCharged = (TList*)regionSortedParticlesReco->At(4);
@@ -993,7 +1054,10 @@ TObjArray *AliAnalysisTaskSEDvsRT::SortRegions(const AliVParticle* leading, TObj
 
       //transverse regions
 
-      if((deltaPhi<-fUeDeltaPhiMinCut) && (deltaPhi >2*fUeDeltaPhiMaxCut))region = -1; //left
+      fPhiDistribution->Fill(part->Phi());
+      fEtaDistribution->Fill(part->Eta());
+
+      if((deltaPhi<-fUeDeltaPhiMinCut) || (deltaPhi >2*fUeDeltaPhiMaxCut))region = -1; //left
       if((deltaPhi > fUeDeltaPhiMinCut) && (deltaPhi <fUeDeltaPhiMaxCut)) region = 1;   //right
 
       if(deltaPhi > -fUeDeltaPhiMinCut && deltaPhi < fUeDeltaPhiMinCut) region = 2;    //forward
@@ -1008,6 +1072,11 @@ TObjArray *AliAnalysisTaskSEDvsRT::SortRegions(const AliVParticle* leading, TObj
       if(region == -1) transverse2->Add(part);
       if(region == 2) toward->Add(part);
       if(region == -2) away->Add(part);
+
+      if(region == 1 || region == -1) fPTDistributionInTransverse->Fill(part->Pt());
+      if(region == 2) fPTDistributionInToward->Fill(part->Pt());
+      if(region == -2) fPTDistributionInAway->Fill(part->Pt());
+      fPTDistributionGlobal->Fill(part->Pt());
 
       allregions->Add(part);
    }//end loop on tracks
@@ -1048,4 +1117,30 @@ TObjArray* AliAnalysisTaskSEDvsRT::GetMinMaxRegion(TList *transv1, TList *transv
    }
 
   return regionParticles;
+}
+
+void AliAnalysisTaskSEDvsRT::FillMCMassHistos(TClonesArray *arrayMC, Int_t labD, Double_t fPhiLeading, Double_t rtval,Double_t nchWeight)
+{
+  //
+  /// Function to fill the true MC signal
+  //
+
+  if(labD>=0){
+    AliAODMCParticle *partD = (AliAODMCParticle*)arrayMC->At(labD);
+    Double_t mass = partD->M();
+    Double_t pt = partD->Pt();
+    Double_t phiCand = partD->Phi();
+    Double_t candDeltaPhi = phiCand - fPhiLeading; //delta-phi wrt leading particle
+
+    if (candDeltaPhi <= -TMath::PiOver2()) candDeltaPhi += TMath::TwoPi();
+    if (candDeltaPhi > 3*TMath::PiOver2()) candDeltaPhi-=TMath::TwoPi();
+
+    Double_t fDeltaPhiMinCut = TMath::DegToRad()*60.;
+    Double_t fDeltaPhiMaxCut = TMath::DegToRad()*120.;
+
+    if ((candDeltaPhi > -fDeltaPhiMinCut) && (candDeltaPhi < fDeltaPhiMinCut))
+      fPtvsMassvsRTMC->Fill(rtval,mass,pt,nchWeight);
+
+  }
+
 }

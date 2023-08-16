@@ -14,6 +14,8 @@
 #include "THnSparse.h"
 #include "TString.h"
 #include "AliEventCuts.h"
+#include "AliPIDCombined.h"
+//#include "AliMCSpectraWeights.h"
 
 class TList;
 class AliCFContainer;
@@ -28,6 +30,7 @@ class AliAODv0;
 class THnSparse;
 class AliAODcascade;
 class AliAODVertex;
+//class AliPIDCombined;
 
 
 //#ifndef ALIANALYSISTASKSEH
@@ -52,6 +55,7 @@ public:
   virtual void SetAnalysisMode(TString mode) { fAnaMode = mode; }
   virtual void SetAssociatedTrack(TString mode) { fasso = mode; }
   virtual void SetPID(Bool_t mode) { fPID = mode; }
+  virtual void SetPIDBaye(Bool_t mode) { fbayesian = mode; }
   virtual void SetDatatype(Bool_t mode) { fDataType = mode; }
   virtual void SetCentCalib(Bool_t mode) { fcentcalib= mode; }
   virtual void SetRunType(Bool_t mode) { frun2 = mode; }
@@ -62,7 +66,8 @@ public:
   virtual void SetExtractSec(Bool_t mode){fextractsec=mode;}
   virtual void SetPtMax(Float_t mode){fPtMax=mode;}
   virtual void SetPtMin(Float_t mode){fPtMin=mode;}
-  
+  virtual void SetBoost(Bool_t mode){fboost=mode;}
+  virtual void SetOnthefly(Bool_t mode){fOnthefly=mode;}
   
   virtual void Setacceptancehole(Bool_t mode){fmakehole=mode;}
   virtual void SetAnalysisCent(TString mode) { fCentType = mode; }
@@ -90,6 +95,10 @@ public:
     }
   }
   void DumpTObjTable(const char* note);
+    
+  //  void SetMCSpectraweightObject(AliMCSpectraWeights*obj){
+  //	fMCSpectraWeights=obj;
+  //  }
 
   
 private:
@@ -102,7 +111,8 @@ private:
   void DefineVZEROOutput();
   void DefineCorrOutput();
   void DefinedQAHistos();
-
+  Bool_t    HasTrackPIDTPC(const AliAODTrack* track) const; // is TPC PID OK for this track ?                                                                                                                                                                                                             
+  Bool_t   HasTrackPIDTOF(const AliAODTrack* track) const; // is TOF PID OK for this track ?   Bool_t                  HasTrackPIDTPC(const AliAODTrack* track) const; // is TPC PID OK for this track ?                                                                                                        
   TObjArray *GetAcceptedTracksLeading(AliAODEvent *faod,Bool_t leading,TObjArray*tracks);
   TObjArray *GetAcceptedTracksPID(AliAODEvent *faod);
   TObjArray *GetAcceptedV0Tracks(const AliAODEvent *faod);
@@ -123,9 +133,10 @@ private:
   Double_t RangePhi(Double_t DPhi);
   Double_t RangePhi_FMD(Double_t DPhi);
   Double_t RangePhi2(Double_t DPhi);
- Int_t      ConvertRunNumber(Int_t run);
-
-/*
+  Int_t      ConvertRunNumber(Int_t run);
+  Double_t Transboost(const AliMCParticle*fTrack);
+  AliMCEvent *getMCEvent();
+  /*
   void FillCorrelationTracksCentralForward(Double_t MultipOrCent, TObjArray *triggerArray,
                              TObjArray *selectedTrackArray, AliTHn *triggerHist,
                              AliTHn *associateHist, Bool_t, Float_t, Float_t,
@@ -145,9 +156,15 @@ private:
                              Float_t phi2, Float_t pt2, Float_t charge2,
                              Float_t radius, Float_t bSign);
 
+
+
+  //  AliMCSpectraWeights* fMCSpectraWeights;
+  
   TString fcollisiontype;
   Bool_t fDataType;
   Bool_t fcentcalib;
+  Bool_t fboost;
+  Bool_t fOnthefly;
   Bool_t frun2;
   Bool_t fQA;
   Bool_t fMCclosure;
@@ -175,8 +192,9 @@ private:
   TList *fOutputList2; // Output list
 
   AliPIDResponse *fPIDResponse; // PID Response
+  AliPIDCombined*         fPIDCombined; //! AliPIDCombined container
   TH2D* fhcorreffi[10];
-
+  Bool_t  fbayesian;
   Int_t ffilterbit;
   Double_t fPtMin;
   Double_t fPtMax;
@@ -229,7 +247,7 @@ private:
   AliEventCuts fEventCuts; 
   AliAnalysisUtils* fUtils;
   AliAODEvent *fEvent; //  AOD Event
-  AliMCEvent* mcEvent;
+  AliMCEvent* fmcEvent;
   AliAODVertex *lPrimaryBestVtx;
   Double_t tPrimaryVtxPosition[3];
   Double_t fPrimaryZVtx;
@@ -252,10 +270,7 @@ private:
   Double_t fMaxnSigmaTPCTOF;
 
   // Global Histograms
-  TH1F *fHistzvertex;
-  TH1F *fHistCentrality;
-  TH1F *fHistCentrality_beforecut;
-  TH2F* fHistCentzvertex;
+
   TH2F* mixedDist;
   TH2F* mixedDist2;
   
@@ -263,67 +278,39 @@ private:
   AliTHn *fHistLeadQA;
   AliTHn *fHistPIDQA;
 
-  TH1D* fhistmcprimpt;
-  TH1D* fhistrecopt;
   
   AliTHn* fhistmcprim;
   AliTHn* fhistmcprimfinal;
-  TH2D* fNTrackCorrMC;
-  TH2D*fhmcprimvzeta;
-  TH2D*fhrecovzeta;
-  TH2D*fhmcrapicent;
-  TH1D* fhmcprimforwardpt;
-  TH2D* fhmcpteta[10];
-  TH2D* fhrecopteta[10];
+
+
   
-  TH2D*fhistmeanpt;
   
   TH1F*frefvz;
   TH1D*fhcorr[10];
 
-  TH1D*fhmcprimpdgcode;
   TH1D*fhrefetaFMD[4];
   TH1D*fhrefphiFMD[4];
 
   TH2D*  fh2_FMD_acceptance_prim;
-  TH2D*  fh2_FMD_eta_phi_prim;
-  TH2D*  fh2_FMD_acceptance;
+
   TH2D*  fh2_ITS_acceptance;
   TH2F*  fh2_SPD_multcorr;
   TH2F*  fh2_SPDV0_multcorr;
   TH2F*  fh2_SPDtrack_multcorr;
   TH1F*  fhtrackletsdphi;
-  TH2D*  fh2_FMD_eta_phi;
+
   TH1F* fHist_NeventRun;
   TH1F* fHist_V0AMultRun;
   TH1F* fHist_V0CMultRun;
   TH1F* fHist_FMDAMultRun;
   TH1F* fHist_FMDCMultRun;
 
-  TH2D*  fhistfmdphiacc;
-  AliTHn* fhistfmd;
   THnSparseF* fhistits;
   AliTHn* fhSecFMD;
   //  const TH2D& d2Ndetadphi;
-  TH2F*fFMDV0;
-  TH2F*fFMDV0_post;
-  TH2F*fFMDV0A;
-  TH2F*fFMDV0A_post;
-  TH2F*fFMDV0C;
-  TH2F*fFMDV0C_post;
 
-  TH1F*fV0Amultprim;
   TH1F*fV0Amultmodi;
-  TH2F*fh2_V0A;
-  TH2F*fh2_V0A_all;
-  TH2F*fh2_V0C;
-  TH2F*fh2_V0A_comp;
-  TH2F*fh2_V0A_comp_prim;
-  
-  TH2F *fHist_vzeromult;
-  TH2F *fHist_vzeromultEqweighted;
-  TH3F *fHist2dmult;
-  AliTHn *fHistVZERO;
+
 
   TH1F *fHist_Stat;
   TH1F *fHist_V0Stat;

@@ -375,7 +375,14 @@ protected:
    * @param runnunber Run number to check
    * @return true in case runs from Pb-Pb 2015 or 2018 at 5.02 TeV are processed, false otherwise
    */
-  inline bool IsRun2PbPb5TeV2015(int runnumber) const;
+  inline bool IsRun2PbPb5TeV(int runnumber) const;
+
+  /**
+   * @brief Get the year in which a run was taken
+   * @param runnumber Run number to check
+   * @return Year in which the run was taken
+   */
+  inline int getYear(int runnumber) const;
 
 
 private:
@@ -415,9 +422,24 @@ bool AliAnalysisTaskEmcalTriggerNormalization::IsRun2pPb8TeV(int runnumber) cons
   return runnumber >= 265589 && runnumber <= 267131;               // LHC16r-s
 }
 
-bool AliAnalysisTaskEmcalTriggerNormalization::IsRun2PbPb5TeV2015(int runnumber) const {
+bool AliAnalysisTaskEmcalTriggerNormalization::IsRun2PbPb5TeV(int runnumber) const {
   return (runnumber >= 244824 && runnumber <= 246994) ||            // LHC15o
-         (runnumber >= 295585 && runnumber <= 296690);              // LHC18q+r
+         (runnumber >= 295585 && runnumber <= 297624);              // LHC18q+r
+}
+
+
+
+int AliAnalysisTaskEmcalTriggerNormalization::getYear(int runnumber) const {
+  if(runnumber >= 66719  && runnumber <= 105523) return 2009;
+  if(runnumber >= 105524 && runnumber <= 139667) return 2010;
+  if(runnumber >= 140390 && runnumber <= 170718) return 2011;
+  if(runnumber >= 170730 && runnumber <= 194306) return 2012;
+  if(runnumber >= 194481 && runnumber <= 199162) return 2013;
+  if(runnumber >= 208402 && runnumber <= 247167) return 2015;
+  if(runnumber >= 247656 && runnumber <= 267252) return 2016;
+  if(runnumber >= 267402 && runnumber <= 282843) return 2017;
+  if(runnumber >= 282908 && runnumber <= 297635) return 2018;
+  return -1;
 }
 
 }

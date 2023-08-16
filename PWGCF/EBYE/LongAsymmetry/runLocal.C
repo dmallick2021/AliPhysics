@@ -13,19 +13,30 @@ void runLocal() {
 
   // load the addtask macro and create the task
   AliAnalysisTaskLegendreCoef *task = reinterpret_cast<AliAnalysisTaskLegendreCoef*>(gInterpreter->ExecuteMacro("macros/AddTaskLegendreCoef.C"));
-  task->SetPileUpRead(kTRUE);
-  // task->SetBuildBackground(kTRUE);
-  TFile *f1 = new TFile("/home/alidock/localtest/AnalysisResults9775.root");
-  TList* histlist = (TList*)f1->Get("LongFluctuations/EtaBG");
-  if(!histlist) printf("error!!!!!!!! no list\n");
-  if(!(TH2D*)histlist->FindObject("PosBGHistOut")) printf("error!!!!!!!! no hist\n");
+  if(!task) return 0x0;
 
-  task->GetPosBackground((TH2D*)histlist->FindObject("PosBGHistOut"));
-  task->GetNegBackground((TH2D*)histlist->FindObject("NegBGHistOut"));
-  task->GetChargedBackground((TH2D*)histlist->FindObject("ChargedBGHistOut"));
-  task->GetNeventsCentHist((TH1D*)histlist->FindObject("NeventsCentHist"));
+  // task->SetPileUpRead(kTRUE);
+  task->SetMCRead(kTRUE);
+  task->SetGeneratorName("Hijing");
+  task->SetEtaMinLimit(-0.8);
+  task->SetEtaMaxLimit(0.8);
+  task->SetNEtaBins(16);
+  task->SetFilterBit(768);
+  task->SetChi2DoF(4);
+  task->SetEfficiencyTree(kTRUE);//generates ttree for efficiency
+  task->SetBuildBackground(kTRUE);
 
-  task->SetBuildLegendre(kTRUE);
+  // TFile *f1 = new TFile("AnalysisResultsbg.root");
+  // TList* histlist = (TList*)f1->Get("LegCoef");
+  // if(!histlist) printf("error!!!!!!!! no list\n");
+  // if(!(TH2D*)histlist->FindObject("PosBGHistOut")) printf("error!!!!!!!! no hist\n");
+
+  // task->GetPosBackground((TH2D*)histlist->FindObject("PosBGHistOut"));
+  // task->GetNegBackground((TH2D*)histlist->FindObject("NegBGHistOut"));
+  // task->GetChargedBackground((TH2D*)histlist->FindObject("ChargedBGHistOut"));
+  // task->GetNeventsCentHist((TH1D*)histlist->FindObject("NeventsCentHist"));
+
+  // task->SetBuildLegendre(kTRUE);
 
 
   if(!mgr->InitAnalysis()) return;
@@ -35,6 +46,12 @@ void runLocal() {
   
   // if you want to run locally, we need to define some input
   TChain* chain = new TChain("aodTree");
-  chain->Add("/home/alidock/longfluc/AliAOD.root");
+  chain->Add("/Users/raquelquishpe/analysis/XeMCAOD/AliAOD1.root");
+  chain->Add("/Users/raquelquishpe/analysis/XeMCAOD/AliAOD3.root");
+  // chain->Add("/Users/raquelquishpe/analysis/XeMCAOD/AliAOD4.root");
+  // chain->Add("/Users/raquelquishpe/analysis/XeMCAOD/AliAOD5.root");
+  // chain->Add("/Users/raquelquishpe/analysis/XeMCAOD/AliAOD6.root");
+
+
   mgr->StartAnalysis("local", chain);
 }

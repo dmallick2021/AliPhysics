@@ -75,6 +75,8 @@ AliAnalysisTaskEmcalSoftDropResponse::AliAnalysisTaskEmcalSoftDropResponse() : A
                                                                                fUseNeutralConstituents(true),
                                                                                fUseStandardOutlierRejection(false),
                                                                                fDropMass0Jets(false),
+                                                                               fMinPtTracksSD(0.),
+                                                                               fMinEClustersSD(0.),
                                                                                fJetTypeOutliers(kOutlierPartJet),
                                                                                fNameMCParticles("mcparticles"),
                                                                                fSampleSplitter(nullptr),
@@ -117,6 +119,8 @@ AliAnalysisTaskEmcalSoftDropResponse::AliAnalysisTaskEmcalSoftDropResponse(const
                                                                                                fUseNeutralConstituents(true),
                                                                                                fUseStandardOutlierRejection(false),
                                                                                                fDropMass0Jets(false),
+                                                                                               fMinPtTracksSD(0.),
+                                                                                               fMinEClustersSD(0.),
                                                                                                fJetTypeOutliers(kOutlierPartJet),
                                                                                                fNameMCParticles("mcparticles"),
                                                                                                fSampleSplitter(nullptr),
@@ -162,9 +166,9 @@ void AliAnalysisTaskEmcalSoftDropResponse::UserCreateOutputObjects()
   AliAnalysisTaskEmcalJet::UserCreateOutputObjects();
   double R = double(int(GetJetContainer(fNameDetLevelJetContainer.Data())->GetJetRadius() * 1000.))/1000.;  // Save cast from float to double truncating after 3rd decimal digit
 
-  fSampleSplitter = new TRandom;
+  fSampleSplitter = new TRandom(0);
   if (fSampleFraction < 1.)
-    fSampleTrimmer = new TRandom;
+    fSampleTrimmer = new TRandom(0);
 
   if (!fPartLevelPtBinning)
     fPartLevelPtBinning = GetDefaultPartLevelPtBinning(fBinningMode);
@@ -804,8 +808,8 @@ bool AliAnalysisTaskEmcalSoftDropResponse::Run()
     SoftdropResults softdropDet = {0., 0., 0., 0., 0., 0}, softdropPart = {0., 0., 0., 0., 0., 0};
     std::vector<SoftdropResults> splittingsDet, splittingsPart;
     try {
-      softdropDet = MakeSoftdrop(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets);
-      splittingsDet = IterativeDecluster(*detjet, detLevelJets->GetJetRadius(), false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets);
+      softdropDet = MakeSoftdrop(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets, fMinPtTracksSD, fMinEClustersSD);
+      splittingsDet = IterativeDecluster(*detjet, detLevelJets->GetJetRadius(), false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets, fMinPtTracksSD, fMinEClustersSD);
     } catch(...) {
       // Failed SoftDrop for det. level jet.
       if(fForceBeamType != kpp) {
@@ -1337,8 +1341,8 @@ bool AliAnalysisTaskEmcalSoftDropResponse::Run()
         // check if for the matched det. level jet we can determine the SoftDrop
         // check this condition first in case not the same acceptance type is required
         try {
-          softdropDet = MakeSoftdrop(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets);
-          splittingsDet = IterativeDecluster(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets);
+          softdropDet = MakeSoftdrop(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets, fMinPtTracksSD, fMinEClustersSD);
+          splittingsDet = IterativeDecluster(*detjet, detLevelJets->GetJetRadius(),false, sdsettings, (AliVCluster::VCluUserDefEnergy_t)clusters->GetDefaultClusterEnergy(), fVertex, fDropMass0Jets, fMinPtTracksSD, fMinEClustersSD);
           tag = kMatchedJetNoAcceptance;
           if(detjet->GetJetAcceptanceType() & partLevelJets->GetAcceptanceType()){
             tag = kPairAccepted;

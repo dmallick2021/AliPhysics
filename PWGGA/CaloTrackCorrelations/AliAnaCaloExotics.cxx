@@ -1025,7 +1025,7 @@ void AliAnaCaloExotics::ClusterHistograms(const TObjArray *caloClusters,
     Float_t enSame      = 0,    enDiff  = 0;
     Float_t enSame5     = 0,    enDiff5 = 0;
     Float_t enSameW     = 0,    enDiffW = 0;
-    Float_t enSameTimeDiff = 0, enDiffTimeDiff = 0;
+    //Float_t enSameTimeDiff = 0, enDiffTimeDiff = 0;
 
     const Int_t nMinEnCut = 18;
     Int_t  nCellSameMinEn[nMinEnCut],  nCellDiffMinEn[nMinEnCut];
@@ -1095,8 +1095,8 @@ void AliAnaCaloExotics::ClusterHistograms(const TObjArray *caloClusters,
       if( tdiff < 50 ) 
       {
         nCellTimeDiff++;
-        if ( sameTCard ) { nCellSameTimeDiff++; enSameTimeDiff+=amp; }
-        else             { nCellDiffTimeDiff++; enDiffTimeDiff+=amp; }
+        if ( sameTCard ) { nCellSameTimeDiff++; }//enSameTimeDiff+=amp; }
+        else             { nCellDiffTimeDiff++; }//enDiffTimeDiff+=amp; }
       }
     } // cells in cluster loop
     
@@ -4609,7 +4609,7 @@ TList * AliAnaCaloExotics::GetCreateOutputObjects()
       fhEventCutClusterEtaPhiGrid[icase]->SetYTitle("row-#varphi (rad)");
       outputContainer->Add(fhEventCutClusterEtaPhiGrid[icase]);
       
-      fhEventCutBunchCrossing[icase] = new TH1I 
+      fhEventCutBunchCrossing[icase] = new TH1F
       (Form("hEventCutBunchCrossing_%s"        ,evtSelName[icase].Data()),
        Form("Selected event bunch crossing, %s",evtSelName[icase].Data()),
        3564, -0.5, 3563.5) ;

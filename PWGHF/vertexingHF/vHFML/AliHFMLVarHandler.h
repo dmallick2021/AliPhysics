@@ -68,7 +68,9 @@ class AliHFMLVarHandler : public TObject
         void SetIsSignalWoQuark(bool isSignalWoQuark);
         void SetBeautyMotherPt(double ptB) {fPtBMother = ptB;}
         void SetBeautyMotherPDG(double pdg) {fPDGBMother = pdg;}
-        void FillTree();
+        virtual void FillTree();
+        void ResetCandType() {fCandType = 0;}
+        int GetCandType() const {return fCandType;}
 
         //to be called for each event
         void SetGlobalEventVariables(AliAODEvent* event);
@@ -79,7 +81,7 @@ class AliHFMLVarHandler : public TObject
         void SetFillOnlySignal(bool fillopt = true) {fFillOnlySignal = fillopt;}
         void SetFillBeautyMotherPt(bool fillopt = true) {fEnableBMotherPt = fillopt;}
         void SetFillBeautyMotherPDG(bool fillopt = true) {fEnableBMotherPDG = fillopt;}
-        void SetAddGlobalEventVariables(bool filltrkl = true, bool fillcent = false, std::string centestim = "V0M") {fEnableNtracklets = filltrkl; fCentPercentile = fillcent; fCentEstimator = centestim;}
+        void SetAddGlobalEventVariables(bool filltrkl = true, bool fillcent = false, std::string centestim = "V0M") {fEnableNtracklets = filltrkl; fEnableCentPercentile = fillcent; fCentEstimator = centestim;}
 
     protected:  
         //constant variables

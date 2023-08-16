@@ -1,6 +1,8 @@
 /*
 Author: Vytautas Vislavicius
-Extention of Generic Flow (https://arxiv.org/abs/1312.3572)
+Contains the non-uniform acceptance correction.
+Primarily used with <AliGFW> framework.
+If used, modified, or distributed, please aknowledge the original author of this code.
 */
 #include "AliGFWWeights.h"
 #include "TMath.h"
@@ -16,6 +18,15 @@ AliGFWWeights::AliGFWWeights():
   fNbinsPt(0),
   fbinsPt(0)
 {
+};
+AliGFWWeights::AliGFWWeights(const AliGFWWeights& target):
+  TNamed(target)
+{
+  fDataFilled = target.fDataFilled;
+  fMCFilled = target.fMCFilled;
+  if(target.fW_data) fW_data = (TObjArray*)target.fW_data->Clone(target.fW_data->GetName());
+  if(target.fW_mcrec) fW_mcrec = (TObjArray*)target.fW_mcrec->Clone(target.fW_mcrec->GetName());
+  if(target.fW_mcgen) fW_mcgen = (TObjArray*)target.fW_mcgen->Clone(target.fW_mcgen->GetName());
 };
 AliGFWWeights::~AliGFWWeights()
 {
@@ -273,7 +284,7 @@ void AliGFWWeights::ReadAndMerge(TString filelinks, TString listName, Bool_t add
 };
 void AliGFWWeights::AddArray(TObjArray *targ, TObjArray *sour) {
   if(!sour) {
-    printf("Source array does not exist!\n");
+    // printf("Source array does not exist!\n");
     return;
   };
   for(Int_t i=0;i<sour->GetEntries();i++) {

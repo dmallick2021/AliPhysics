@@ -54,6 +54,7 @@ endif()
 set(SRCS
   Exotica/Hdibaryon/AliAnalysisTaskHdibaryonLPpi.cxx
   Exotica/Dibaryons/AliAnalysisTaskDibaryons.cxx
+  Exotica/Dibaryons/AliAnalysisTaskMSDibaryons.cxx
   Exotica/LambdaN/AliAnalysisTaskLambdaNAOD.cxx
   Exotica/LambdaN/AliAnalysisTaskLambdaNRun2.cxx
   Exotica/LambdaNN/AliAnalysisTaskLNNntuple.cxx
@@ -69,15 +70,24 @@ set(SRCS
   Hypernuclei/Hyp2Body/AliAnalysisTaskReducedTreeHypertritonBindingEnergy.cxx
   Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisTaskS3ParticleYields.cxx
   Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisTaskHe3EffTree.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisTaskHypTritKf.cxx
   Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisCODEXS3task.cxx
   Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisTaskTRDtriggerTracks.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/Sigma_Baryons/AliAnalysisTaskSigmaPlus.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/pdLd/AliAnalysisTask_pdLd.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/pd/AliAnalysisTask_pd.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/pd/AliAnalysisTask_pd_CreateTrees_PairsOnly.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/pp/AliAnalysisTask_pp_CreateTrees_PairsOnly.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/Ld/AliAnalysisTask_Ld_CreateTrees_PairsOnly.cxx
   Hypernuclei/Hyp2Body/AliReducedHypTritEvent.cxx
   Hypernuclei/Hyp2Body/AliAnalysisTaskHypTritEventTree.cxx
+  Hypernuclei/Hyp2Body/HypTritYield/AliAnalysisTaskHe3TriTree.cxx
   Hypernuclei/Hyp3Body/AliAnalysisTaskFindableHypertriton3.cxx
   Hypernuclei/Vertexer2Body/AliVertexerHyperTriton2Body.cxx
   Hypernuclei/Vertexer3Body/AliVertexerHyperTriton3Body.cxx
   Hypernuclei/KFHypertriton/AliAnalysisTaskHypertritonKFTree.cxx
   Hypernuclei/DoubleHypNuc/AliAnalysisTaskDoubleHypNucTree.cxx
+  Hypernuclei/DoubleHypNuc/AliAnalysisTaskDoubleHypNucTreeLS.cxx
   Nuclei/Absorption/AliAnalysisTaskDeuteronAbsorption.cxx
   Nuclei/AbsorptionRatios/AliAnalysisTaskLightN.cxx
   Nuclei/AbsorptionRatios/AliLightNEventHist.cxx
@@ -90,7 +100,9 @@ set(SRCS
   Nuclei/AbsorptionRatios/AliLightNEventCuts.cxx
   Nuclei/AbsorptionRatios/AliLightNTrackMCHist.cxx
   Nuclei/AbsorptionRatios/AliAnalysisTaskHe3.cxx
+  Nuclei/AbsorptionRatios/AliAnalysisH3MC.cxx
   Nuclei/AbsorptionRatios/AliAnalysisHe3MC.cxx
+  Nuclei/AbsorptionRatios/AliAnalysisH3MC.cxx
   Nuclei/AbsorptionRatios/AliAnalysisTaskHe3_ESD.cxx
   Nuclei/AbsorptionRatios/AliAnalysisTaskNuclei.cxx
   Nuclei/AbsorptionRatios/HMAnalysis/AliAnalysisTaskAntipd.cxx
@@ -99,12 +111,23 @@ set(SRCS
   Nuclei/He4/AliAnalysisTaskAntiHe4.cxx
   Nuclei/He4pp/AliAnalysisHe4.cxx
   Nuclei/Nuclei_UE/AliAnalysisTaskDeuteronsRT.cxx
+  Nuclei/Nuclei_UE/AliAnalysisTaskDeuteronCoalescence.cxx
+  Nuclei/Nuclei_UE/AliAnalysisTaskPythiaCoalescence.cxx
+  Nuclei/Nuclei_UE/AliAnalysisTaskSimpleCoalescenceHelium3.cxx
+  Nuclei/Nuclei_UE/AliAnalysisTaskSimpleCoalescenceDeuteronInJets.cxx
   Nuclei/NucleiPbPb/AliAnalysisTaskNucleiYield.cxx
   Nuclei/NucleiPbPb/AliAnalysisTaskNucleiPIDqa.cxx
   Nuclei/NucleiPbPb/AliAnalysisTaskSignalLoss.cxx
   Nuclei/NucleiReducedTree/AliAnalysisTaskReducedTreeNuclei.cxx
   Nuclei/NucleiReducedTree/AliAnalysisTaskReducedTreeHypertriton.cxx
   Nuclei/TritonAnalysis/AliAnalysisTaskTritonVsMultiplicity_PbPb.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskTritonESD_PbPb.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskTritonVsMultiplicity_XeXe.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskHe3VsMultiplicity_XeXe.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskDeuteronVsMultiplicity_XeXe.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskLightNuclei_XeXe_MC.cxx
+  Nuclei/TritonAnalysis/AliAnalysisTaskDeuteron_XeXe_MC.cxx    
+  Nuclei/TritonAnalysis/AliAnalysisTaskDeuteron_XeXe_MC_noMult.cxx
   Nuclei/v2/AliAnalysisTaskNucleiv2.cxx
   Nuclei/v2/AliAnalysisTaskNucleiv2SP.cxx
   Nuclei/v2/AliAnalysisTaskNucleiv2pPb.cxx
@@ -127,6 +150,10 @@ if(ROOT_VERSION_MAJOR EQUAL 6)
 	set(SRCS
 	  ${SRCS}
       Hypernuclei/Hyp2Body/AliAnalysisTaskHyperTriton2He3piML.cxx
+      Hypernuclei/Hyp2Body/AliAnalysisTaskHe3piAOD.cxx
+      Hypernuclei/Hyp2Body/AliAnalysisTaskHe3piKF.cxx
+      Hypernuclei/Hyp2Body/AliAnalysisTaskAlphaPiAOD.cxx
+      Hypernuclei/Hyp2Body/AliAnalysisTaskAlphaPiAODtrk.cxx
 			Hypernuclei/Hyp3Body/selector/AliSelectorFindableHyperTriton3Body.cxx
       Hypernuclei/Hyp3Body/AliAnalysisTaskHypertriton3.cxx
       Hypernuclei/Hyp3Body/Hypertriton3structures.cxx
@@ -211,3 +238,4 @@ install(FILES ${HDRS} DESTINATION include)
 
 # install macros
 install(DIRECTORY . DESTINATION PWGLF/NUCLEX FILES_MATCHING PATTERN "*.C")
+

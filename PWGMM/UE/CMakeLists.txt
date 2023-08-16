@@ -38,8 +38,11 @@ set(SRCS
   UeMultDep/AliAnalysisTaskUeMultDep.cxx
   UeDphi/AliAnalysisTaskUeSpectraDphi.cxx
   UeSpectraRT/AliAnalysisTaskUeSpectraRT.cxx
+  UeKNO/AliAnalysisTaskKnoUeChecks.cxx
   UeKNO/AliAnalysisTaskMcKnoUe.cxx
+  UeKNO/AliAnalysisTaskMcKnoUeSystem.cxx
   UeKNO/AliAnalysisTaskGenMcKnoUe.cxx
+  UeKNO/AliAnalysisTaskGenMcFlattenicity.cxx
   UeKNO/AliAnalysisTaskGenUeVsMult.cxx
   UeKNO/AliAnalysisTaskMcKnoUeSyst.cxx
   UeKNO/AliAnalysisTaskMcKno.cxx
@@ -47,7 +50,19 @@ set(SRCS
   UeKNO/AliAnalysisTaskDataKno.cxx
   UeKNO/AliAnalysisTaskGenMcKno.cxx
   UeKNO/AliAnalysisTaskGenUeNchTS.cxx
-  UeMpi/AliAnalysisTaskMpiUE.cxx		
+  UeKNO/AliAnalysisTaskFlatenicity.cxx
+  UeKNO/AliAnalysisTaskFlatenicityMCpred.cxx
+  UeKNO/AliAnalysisTaskDeutFlucpp.cxx
+  UeMpi/AliAnalysisTaskMpiUE.cxx
+  Flatenicity/AliAnalysisTaskSpectraFlatenicity.cxx
+  FlatenicityPiKp/AliAnalysisTaskFlatenicityPiKp.cxx
+  FlatenicityLambdaK0s/AliAnalysisTaskFlatenicityLambdaK0s.cxx
+  FlatenicityLambdaK0s/AliAnalysisTaskFlatenicityLambdaK0sMC.cxx
+  FlatenicityPiKp/AliAnalysisTaskdEdxCalibration.cxx
+  FlatenicityPiKp/AliAnalysisTaskMCCorrections.cxx
+  FlatenicityPiKp/AliAnalysisTaskOnlyFlatenicity.cxx
+  FlatenicityPiKp/AliAnalysisTaskSystematicsV0M.cxx
+  FlatenicityPiKp/AliAnalysisTaskFlatenicityMCclosure.cxx
   )
 
 # Headers from sources
@@ -116,4 +131,7 @@ install(FILES ${HDRS} DESTINATION include)
 install(DIRECTORY UeMultDep DESTINATION  PWGMM/UE)
 install(DIRECTORY UeSpectraRT DESTINATION  PWGMM/UE)
 install(DIRECTORY UeDphi DESTINATION  PWGMM/UE)
-install(DIRECTORY macros DESTINATION  PWGMM/UE)		
+install(DIRECTORY macros DESTINATION  PWGMM/UE)
+install(DIRECTORY Flatenicity DESTINATION  PWGMM/UE)
+install(DIRECTORY FlatenicityPiKp DESTINATION  PWGMM/UE)
+install(DIRECTORY FlatenicityLambdaK0s DESTINATION  PWGMM/UE)

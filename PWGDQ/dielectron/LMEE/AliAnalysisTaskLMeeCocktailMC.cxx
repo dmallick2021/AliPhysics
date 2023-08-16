@@ -161,10 +161,19 @@ AliAnalysisTaskLMeeCocktailMC::AliAnalysisTaskLMeeCocktailMC(): AliAnalysisTaskS
   fMaxEta(2),
   fMinPt(0),
   fMaxPt(1000),
+  fNBinsMee(1200),
+  fMinMee(0.0),
+  fMaxMee(6.0),
+  fNBinsPtee(400),
+  fMinPtee(0.0),
+  fMaxPtee(10.0),
+  fMinOpAng(0.0),
   fWriteTTree(2),
   fcollisionSystem(2),
   fResolType(2),
-  fALTweightType(2)
+  fALTweightType(2),
+  fDoRapidityCut(kFALSE),
+  fMaxRap(1.)
 {
 
 }
@@ -279,10 +288,19 @@ AliAnalysisTaskLMeeCocktailMC::AliAnalysisTaskLMeeCocktailMC(const char *name):
   fMaxEta(2),
   fMinPt(0),
   fMaxPt(1000),
+  fNBinsMee(1200),
+  fMinMee(0.0),
+  fMaxMee(6.0),
+  fNBinsPtee(400),
+  fMinPtee(0.0),
+  fMaxPtee(10.0),
+  fMinOpAng(0.0),
   fWriteTTree(2),
   fcollisionSystem(2),
   fResolType(2),
-  fALTweightType(2)
+  fALTweightType(2),
+  fDoRapidityCut(kFALSE),
+  fMaxRap(1.)
 {
   // Define output slots here
   DefineOutput(1, TList::Class());
@@ -305,7 +323,7 @@ void AliAnalysisTaskLMeeCocktailMC::UserCreateOutputObjects(){
     fOutputContainer          = new TList();
     fOutputContainer->SetOwner(kTRUE);
   }
-  
+
   fHistNEvents                = new TH1F("NEvents", "NEvents", 1, 0, 1);
   fHistNEvents->Sumw2();
   fOutputContainer->Add(fHistNEvents);
@@ -326,7 +344,7 @@ void AliAnalysisTaskLMeeCocktailMC::UserCreateOutputObjects(){
   //fOutputContainer->Add(fhwMultmT);
   //fOutputContainer->Add(fhwMultpT2);
   //fOutputContainer->Add(fhwMultmT2);
- 
+
   // Get DCA templates:
   fFileNameDCA = "$ALICE_PHYSICS/PWGDQ/dielectron/files/LMeeCocktailInputs_DCA.root";
   fFileDCA = TFile::Open(fFileNameDCA.Data());
@@ -381,7 +399,7 @@ void AliAnalysisTaskLMeeCocktailMC::UserCreateOutputObjects(){
     fArr=arr;
    }
   }
- 
+
 
   // Define the output tree
   teeTTree = new TTree("eeTTree","a simple TTree");
@@ -444,13 +462,13 @@ void AliAnalysisTaskLMeeCocktailMC::UserCreateOutputObjects(){
   // ---------------------
   //  "111" Pi0 (0)
   //  "221" Eta (1)
-  //XX      3221 // Eta_dalitz 
-  //XX    114221 // eta 4-body -> e+e- e+e- 
-  //XX   2114221 // eta 4-body -> e+e- pi+pi- 
+  //XX      3221 // Eta_dalitz
+  //XX    114221 // eta 4-body -> e+e- e+e-
+  //XX   2114221 // eta 4-body -> e+e- pi+pi-
   //  "331" EtaP (2)
   //      223331 // EtaP_dalitz_photon (3)
   //     2233331 // EtaP_dalitz_omega  (4)
-  //XX      4331 // eta' 4-body 
+  //XX      4331 // eta' 4-body
   //  "113" Rho (5)
   //  "223" Omega (6)
   //       2223 // Omega_2body (7)
@@ -471,15 +489,22 @@ void AliAnalysisTaskLMeeCocktailMC::UserCreateOutputObjects(){
   fParticleListNames  = fParticleListNames_local;
 
   //booking
-  Int_t   histBinM  = 1200; //600
-  Float_t histMinM  = 0.;
-  Float_t histMaxM  = 6.; //10.
-  Int_t   histBinPt = 400; //160//80
-  Float_t histMinPt = 0.;
-  Float_t histMaxPt = 10.; //8.
+  Int_t   histBinM  = fNBinsMee; //600
+  // Int_t   histBinM  = 1200; //600
+  Float_t histMinM  = fMinMee;
+  // Float_t histMinM  = 0.;
+  Float_t histMaxM  = fMaxMee; //10.
+  // Float_t histMaxM  = 6.; //10.
+  Int_t   histBinPt = fNBinsPtee; //160//80
+  // Int_t   histBinPt = 400; //160//80
+  Float_t histMinPt = fMinPtee;
+  // Float_t histMinPt = 0.;
+  Float_t histMaxPt = fMaxPtee; //8.
+  // Float_t histMaxPt = 10.; //8.
+
   Int_t   histBinPhi = 240; //320;
   Float_t histMinPhi = 0.;
-  Float_t histMaxPhi = TMath::TwoPi(); //3.2; 
+  Float_t histMaxPhi = TMath::TwoPi(); //3.2;
   Int_t   histBinRap  = 240;
   Float_t histMinRap  = -1.2;
   Float_t histMaxRap  =  1.2;
@@ -633,13 +658,13 @@ void AliAnalysisTaskLMeeCocktailMC::UserExec(Option_t *)
 
   fInputEvent = InputEvent();
   //cout << "I found an Event" << endl;
-  
+
   fMCEvent = MCEvent();
   if(fMCEvent == NULL) fIsMC = 0;
-  
+
   if (fIsMC==0) return;
   //cout << "I found an MC header" << endl;
-    
+
   fHistNEvents->Fill(0.5);
 
   ProcessMCParticles();
@@ -657,7 +682,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
 
   Int_t Skip2ndLeg=0;
 
-  // Loop over all primary MC particle  
+  // Loop over all primary MC particle
   for(UInt_t i = 0; i < fMCEvent->GetNumberOfTracks(); i++) {
 
    //LS and ULS spectra
@@ -685,7 +710,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
      if(dielectron_ch==0) fULS_orig->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
      if(dielectron_ch>0) fLSpp_orig->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
      if(dielectron_ch<0) fLSmm_orig->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
-     if(e.Pt()>fMinPt&&eBuff.at(jj).Pt()>fMinPt&&e.Pt()<fMaxPt&&eBuff.at(jj).Pt()<fMaxPt&&TMath::Abs(e.Eta())<fMaxEta&&TMath::Abs(eBuff.at(jj).Eta())<fMaxEta){
+     if(e.Pt()>fMinPt&&eBuff.at(jj).Pt()>fMinPt&&e.Pt()<fMaxPt&&eBuff.at(jj).Pt()<fMaxPt&&TMath::Abs(e.Eta())<fMaxEta&&TMath::Abs(eBuff.at(jj).Eta())<fMaxEta&&e.Angle(eBuff.at(jj).Vect())>fMinOpAng){
       if(dielectron_ch==0) fULS->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
       if(dielectron_ch>0) fLSpp->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
       if(dielectron_ch<0) fLSmm->Fill(dielectron.M(),dielectron.Pt(),dielectron_weight);
@@ -724,7 +749,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
     if(hasMother){
      //if(motherParticle->Particle()->GetMother(0)>-1)motherIsPrimary = kTRUE;
      if(motherParticle->Particle()->GetMother(0)==-1)motherIsPrimary = kTRUE;
-     
+
      //skip for the moment other particles rather than pi0, eta, etaprime, omega, rho, phi.
      switch(motherParticle->PdgCode()){
       case 111:
@@ -750,8 +775,17 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
     if (!(fabs(particle->E()-particle->Pz())>0.)) continue;
 
     Double_t yPre = (particle->E()+particle->Pz())/(particle->E()-particle->Pz());
-    if (yPre == 0.) continue;
-    
+    Double_t y = 0.5*TMath::Log(yPre);
+
+    // It is anyway not the rapidity of the mother here (particle is the electron...)
+    // and we should not put a rapidity cut on the mother, since we do not do it in the data
+    // Therefore I comment this out and use the fDoRapidityCut for a cut on the rapidity of the dielectron pairs
+    //if(fDoRapidityCut){//Apply rapidity cut on mother consistent with GammaConv group.
+    //  if (yPre <= 0.) continue;
+    //  if (TMath::Abs(y) > 1.000)  continue;
+    //}else{
+    //  if (yPre == 0.) continue;
+    //}
     // We have an electron with a mother. Check that mother is primary and number of daughters
     if(abs(particle->PdgCode())==11 && hasMother==kTRUE){
      fdectyp = 0; // fdectyp: decay type (based on number of daughters).
@@ -767,7 +801,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
 
        TLorentzVector dau1,dau2,ee,ee_orig;
        dau1.SetPxPyPzE(particle->Px(),particle->Py(),particle->Pz(),particle->E());
-       dau2.SetPxPyPzE(particle2->Px(),particle2->Py(),particle2->Pz(),particle2->E());  
+       dau2.SetPxPyPzE(particle2->Px(),particle2->Py(),particle2->Pz(),particle2->E());
        //create dielectron before resolution effects:
        ee=dau1+dau2;
        ee_orig=ee;
@@ -854,14 +888,17 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
         effbin=fhwEffpT->FindBin(dau2.Pt());
         fwEffpT=fwEffpT*fhwEffpT->GetBinContent(effbin);
 
-        //Resolution and acceptance  
+        //Resolution and acceptance
         //-------------------------
         if(particle->PdgCode()>0) { dau1=ApplyResolution(dau1,-1,fResolType); }else{ dau1=ApplyResolution(dau1,1,fResolType);};
         if(particle2->PdgCode()>0) { dau2=ApplyResolution(dau2,-1,fResolType); }else{ dau2=ApplyResolution(dau2,1,fResolType);};
         fpass=kTRUE;
         if(dau1.Pt()<fMinPt||dau2.Pt()<fMinPt) fpass=kFALSE; //leg pT cut
         if(dau1.Pt()>fMaxPt||dau2.Pt()>fMaxPt) fpass=kFALSE; //leg pT cut
+        if(dau1.Angle(dau2.Vect())<fMinOpAng) fpass=kFALSE; //opening angle cut
+
         if(TMath::Abs(dau1.Eta())>fMaxEta||TMath::Abs(dau2.Eta())>fMaxEta) fpass=kFALSE;
+
 
         //get the pair DCA (based in smeared pT)
         Float_t DCAtemplateLowEdge[] = {0., .3, .4, .6, 1., 2. };
@@ -899,6 +936,11 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
         fID=motherParticle->PdgCode();
         fweight=particle->Particle()->GetWeight(); //get particle weight from generator
 
+        // Apply rapidity cut on the dielectron pairs
+        if(fDoRapidityCut){
+          if(TMath::Abs(ee.Rapidity()) > fMaxRap) fpass=kFALSE;
+        }
+
         //get multiplicity based weight:
         int iwbin=fhwMultpT->FindBin(fmotherpt);
         fwMultpT=fhwMultpT->GetBinContent(iwbin); //pT weight
@@ -920,11 +962,11 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
         if(fALTweightType == 11) fwALT = fwMultmT2;  //mT multiplicity weight, higher mult
         if(fALTweightType == 2) fwALT = fwMultpT;  //pT multiplicity weight
         if(fALTweightType == 22) fwALT = fwMultpT2;  //pT multiplicity weight, higher mult
- 
+
         //Fill the tree
         if(fWriteTTree) teeTTree->Fill();
 
-	
+
         //Fill the histograms
         if(fdectyp<4){ //skip for the moment 4-particle decays
          for(Int_t jj=0;jj<3;jj++){ // fill the different hindex -> particles
@@ -952,7 +994,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
           }
          }
         }
-  
+
         //Virtual photon generation
         //-------------------------
         //We will generate one virtual photon per histogrammed pion
@@ -1001,7 +1043,7 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
         feeorigm=ee.M();
         feeorigeta=ee.Eta();
         feeorigphi=ee.Phi();
-        feeorigphiv=PhiV(dau1,dau2); 
+        feeorigphiv=PhiV(dau1,dau2);
 
         //get the efficiency weight
         Int_t effbin=fhwEffpT->FindBin(dau1.Pt());
@@ -1009,13 +1051,15 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
         effbin=fhwEffpT->FindBin(dau2.Pt());
         fwEffpT=fwEffpT*fhwEffpT->GetBinContent(effbin);
 
-        //Resolution and acceptance  
+        //Resolution and acceptance
         //-------------------------
         dau1=ApplyResolution(dau1,1,fResolType);
         dau2=ApplyResolution(dau2,-1,fResolType);
         fpass=kTRUE;
         if(dau1.Pt()<fMinPt||dau2.Pt()<fMinPt) fpass=kFALSE; //leg pT cut
         if(dau1.Pt()>fMaxPt||dau2.Pt()>fMaxPt) fpass=kFALSE; //leg pT cut
+        if(dau1.Angle(dau2.Vect())<fMinOpAng) fpass=kFALSE; //opening angle cut
+
         if(TMath::Abs(dau1.Eta())>fMaxEta||TMath::Abs(dau2.Eta())>fMaxEta) fpass=kFALSE;
 
         //get the pair DCA (based in smeared pT) -> no DCA for virtual photon for the moment
@@ -1074,16 +1118,16 @@ void AliAnalysisTaskLMeeCocktailMC::ProcessMCParticles(){
           }
          }
         }//----------- create one v.ph. per pi0
-  
+
 
        } // legs coincide
       } // check the 2nd leg
 
      } // mother is primary
    } // pdgid==11 and HasMother
-    
+
   }//MC particles loop
-  
+
   //Clear buffers
   eBuff.clear();
   echBuff.clear();
@@ -1103,20 +1147,21 @@ void AliAnalysisTaskLMeeCocktailMC::SetEffFileName(TString name)
   //
   // Set efficiency histo
   //
-  
+
   printf("Set Efficiency histo\n");
-  
-  fFileNameEff = name; 
+
+  fFileNameEff = name;
 
   // Get Efficiency
   if(fFileNameEff.Contains("alien")){
     // file is copied from alien path to local directory
-    gSystem->Exec(Form("alien_cp %s .", fFileNameEff.Data()));
-      
+    gSystem->Exec(Form("alien_cp %s file:./", fFileNameEff.Data()));
+    //TFile::Cp(fFileNameEff, TString::Format("file:%s", gSystem->BaseName(fFileNameEff)));//this works only rootfile
+
     // obtain ROOT file name only and local directory
     TObjArray* Strings = fFileNameEff.Tokenize("/");
     fFileNameEffLocal = Form("%s/%s",gSystem->pwd(),Strings->At(Strings->GetEntriesFast()-1)->GetName());
-      
+
     Printf("Set efficiency file name to %s (copied from %s)",fFileNameEffLocal.Data(),fFileNameEff.Data());
     }
     else{
@@ -1130,7 +1175,7 @@ void AliAnalysisTaskLMeeCocktailMC::SetEffFileName(TString name)
   }
   fhwEffpT = (TH1F*) fFileEff->Get("fhwEffpT"); // histo: eff weight in function of pT.
   fhwEffpT->SetDirectory(0);
-  
+
 
 }
 void AliAnalysisTaskLMeeCocktailMC::SetResFileName(TString name)
@@ -1141,26 +1186,27 @@ void AliAnalysisTaskLMeeCocktailMC::SetResFileName(TString name)
   //
 
   fResolDataSetName = name;
-  
+
   //RUN2
   if(fResolType == 2) {
     if(fResolDataSetName.Contains("alien")){
       // file is copied from alien path to local directory
-      gSystem->Exec(Form("alien_cp %s .", fResolDataSetName.Data()));
-      
+      gSystem->Exec(Form("alien_cp %s file:./", fResolDataSetName.Data()));
+      //TFile::Cp(fResolDataSetName, TString::Format("file:%s", gSystem->BaseName(fResolDataSetName)));//this works only rootfile
+
       // obtain ROOT file name only and local directory
       TObjArray* Strings = fResolDataSetName.Tokenize("/");
       fFileName = Form("%s/%s",gSystem->pwd(),Strings->At(Strings->GetEntriesFast()-1)->GetName());
-      
+
       Printf("Set resolution file name to %s (copied from %s)",fFileName.Data(),fResolDataSetName.Data());
     }
     else{
       if(fcollisionSystem==200){ //pp 13TeV
-	fFileName = "$ALICE_PHYSICS/PWGDQ/dielectron/files/LMeeCocktailInputs_Respp13TeV.root";
+        fFileName = "$ALICE_PHYSICS/PWGDQ/dielectron/files/LMeeCocktailInputs_Respp13TeV.root";
       }
       else{
-	if(!fLocalRes) fFileName = "$ALICE_PHYSICS/PWGDQ/dielectron/files/"+ fResolDataSetName;
-	else fFileName = fResolDataSetName;
+        if(!fLocalRes) fFileName = "$ALICE_PHYSICS/PWGDQ/dielectron/files/"+ fResolDataSetName;
+        else fFileName = fResolDataSetName;
       }
     }
    fFile = TFile::Open(fFileName.Data());
@@ -1179,7 +1225,7 @@ void AliAnalysisTaskLMeeCocktailMC::SetResFileName(TString name)
    fArrResoEta=ArrResoEta;
    fArrResoPhi_Pos=ArrResoPhi_Pos;
    fArrResoPhi_Neg=ArrResoPhi_Neg;
-  } 
+  }
 
 }
 //_______________________________________________________________________________________________
@@ -1206,7 +1252,7 @@ TLorentzVector AliAnalysisTaskLMeeCocktailMC::ApplyResolution(TLorentzVector vec
     resvec.SetPxPyPzE(px,py,pz,E);
   }
   else if(Run == 1){
-  
+
    TH1D *hisSlice(0x0);
    if(fArr){
      TH2D *hDeltaPtvsPt = static_cast<TH2D*> (fArr->At(0));
@@ -1303,5 +1349,3 @@ Double_t AliAnalysisTaskLMeeCocktailMC::PhiV(TLorentzVector e1, TLorentzVector e
   outPhiV=w.Angle(wc);
   return outPhiV;
 }
-
-

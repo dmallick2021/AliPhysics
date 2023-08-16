@@ -31,6 +31,9 @@ include_directories(${ROOT_INCLUDE_DIRS}
                     ${AliPhysics_SOURCE_DIR}/PWG/JETFW
                     ${AliPhysics_SOURCE_DIR}/OADB
                     ${AliPhysics_SOURCE_DIR}/PWGJE/EMCALJetTasks
+                    ${AliPhysics_SOURCE_DIR}/PWG/Tools/yaml-cpp/include
+                    ${AliPhysics_SOURCE_DIR}/PWGHF/vertexingHF
+                    ${AliPhysics_SOURCE_DIR}/PWGHF/jetsHF
   )
 
 # Sources - alphabetical order
@@ -42,14 +45,12 @@ set(SRCS
 	AliJEbECORRTask.cxx
 	AliJEbeHistos.cxx
 	AliJEbePercentile.cxx
-	AliJHSInterplayTask.cxx
 	AliJJetAnalysis.cxx
 	AliJJetCORRAnalysis.cxx
 	AliJJetCORRTask.cxx
 	AliJJetJtAnalysis.cxx
 	AliJJetJtTask.cxx
 	AliJJetTask.cxx
-	AliAnalysisTaskGenMCRidge.cxx
 	AliAnalysisTaskRidge.cxx
 	AliJPtHardXection.cxx
 	AliJJetQAAna.cxx
@@ -61,8 +62,12 @@ if(FASTJET_FOUND)
         AliJCDijetHistos.cxx
         AliJCDijetTask.cxx
         AliJCDijetAna.cxx
+        AliJHSInterplayTask.cxx
+        AliAnalysisTaskGenMCRidge.cxx
         AliAnalysisTaskEmcalJetDijetMass.cxx
+        AliJEmcalDijetAna.cxx
         AliJFJTask.cxx
+        AliJHFTagging.cxx
         )
     include_directories(SYSTEM ${FASTJET_INCLUDE_DIR})
     link_directories(${FASTJET_LIBS_DIR})
@@ -79,7 +84,7 @@ get_directory_property(incdirs INCLUDE_DIRECTORIES)
 generate_dictionary("${MODULE}" "${MODULE}LinkDef.h" "${HDRS}" "${incdirs}" "${FASTJET_ROOTDICT_OPTS}")
 
 set(ROOT_DEPENDENCIES)
-set(ALIROOT_DEPENDENCIES ANALYSISalice CORRFW  EMCALUtils PHOSUtils PWGJETFW PWGCFCorrelationsJCORRAN)
+set(ALIROOT_DEPENDENCIES ANALYSISalice CORRFW  EMCALUtils PHOSUtils PWGJETFW PWGCFCorrelationsJCORRAN PWGHFvertexingHF)
 
 # Generate the ROOT map
 # Dependecies

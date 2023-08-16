@@ -43,8 +43,17 @@ void AddTask_GammaConvNeutralMesonPiPlPiMiNeutralMeson_MixedMode_PbPb(
     TString   additionalTrainConfig       = "0"                       // additional counter for trainconfig, this has to be always the last parameter
   ) {
 
-  Int_t trackMatcherRunningMode = 0; // CaloTrackMatcher running mode
+  AliCutHandlerPCM cuts(13);
+  TString addTaskName                       = "AddTask_GammaConvNeutralMesonPiPlPiMiNeutralMeson_MixedMode_PbPb";
+
+  TString corrTaskSetting             = cuts.GetSpecialSettingFromAddConfig(additionalTrainConfig, "CF", "", addTaskName);
+  if(corrTaskSetting.CompareTo(""))
+    cout << "corrTaskSetting: " << corrTaskSetting.Data() << endl;
+
   //parse additionalTrainConfig flag
+  Int_t trackMatcherRunningMode = 0; // CaloTrackMatcher running mode
+  TString unsmearingoutputs = "012"; // 0: No correction, 1: One pi0 mass errer subtracted, 2: pz of pi0 corrected to fix its mass, 3: Lambda(alpha)*DeltaPi0 subtracted, 4: Analytic PCMEMC unsmearing
+
   TObjArray *rAddConfigArr = additionalTrainConfig.Tokenize("_");
   if(rAddConfigArr->GetEntries()<1){cout << "ERROR during parsing of additionalTrainConfig String '" << additionalTrainConfig.Data() << "'" << endl; return;}
   TObjString* rAdditionalTrainConfig;
@@ -58,6 +67,17 @@ void AddTask_GammaConvNeutralMesonPiPlPiMiNeutralMeson_MixedMode_PbPb(
         tempType.Replace(0,2,"");
         trackMatcherRunningMode = tempType.Atoi();
         cout << Form("INFO: AddTask_GammaConvNeutralMesonPiPlPiMiPiZero_MixedMode_PbPb will use running mode '%i' for the TrackMatcher!",trackMatcherRunningMode) << endl;
+      }
+      if(tempStr.BeginsWith("UNSMEARING")){
+        TString tempType = tempStr;
+        tempType.Replace(0,9,"");
+        unsmearingoutputs = tempType;
+        cout << "INFO: AddTask_GammaConvNeutralMesonPiPlPiMiPiZero_MixedMode_pPb will output the following minv_pT histograms:" << endl;
+        if(unsmearingoutputs.Contains("4")) cout << "- Analytic PCM unsmearing" << endl;
+        else if(unsmearingoutputs.Contains("0")) cout << "- Uncorrected" << endl;
+        if(unsmearingoutputs.Contains("1")) cout << "- SubNDM" << endl;
+        if(unsmearingoutputs.Contains("2")) cout << "- Fixpz" << endl;
+        if(unsmearingoutputs.Contains("3")) cout << "- SubLambda" << endl;
       }
     }
   }
@@ -129,8 +149,7 @@ AliVEventHandler *inputHandler=mgr->GetInputEventHandler();
   if(runLightOutput>1) task->SetLightOutput(kTRUE);
   task->SetTolerance(tolerance);
   task->SetTrackMatcherRunningMode(trackMatcherRunningMode);
-
-  AliCutHandlerPCM cuts(13);
+  task->SetCorrectionTaskSetting(corrTaskSetting);
 
 
   // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -215,6 +234,10 @@ AliVEventHandler *inputHandler=mgr->GetInputEventHandler();
     TString caloCutPos = cuts.GetClusterCut(i);
     caloCutPos.Resize(1);
     TString TrackMatcherName = Form("CaloTrackMatcher_%s_%i",caloCutPos.Data(),trackMatcherRunningMode);
+    if(corrTaskSetting.CompareTo("")){
+      TrackMatcherName = TrackMatcherName+"_"+corrTaskSetting.Data();
+      cout << "Using separate track matcher for correction framework setting: " << TrackMatcherName.Data() << endl;
+    }
     if( !(AliCaloTrackMatcher*)mgr->GetTask(TrackMatcherName.Data()) ){
       AliCaloTrackMatcher* fTrackMatcher = new AliCaloTrackMatcher(TrackMatcherName.Data(),caloCutPos.Atoi(),trackMatcherRunningMode);
       fTrackMatcher->SetV0ReaderName(V0ReaderName);
@@ -224,6 +247,7 @@ AliVEventHandler *inputHandler=mgr->GetInputEventHandler();
 
     analysisEventCuts[i] = new AliConvEventCuts();
     analysisEventCuts[i]->SetV0ReaderName(V0ReaderName);
+    analysisEventCuts[i]->SetCorrectionTaskSetting(corrTaskSetting);
     analysisEventCuts[i]->SetTriggerMimicking(enableTriggerMimicking);
     analysisEventCuts[i]->SetTriggerOverlapRejecion(enableTriggerOverlapRej);
 
@@ -246,6 +270,7 @@ AliVEventHandler *inputHandler=mgr->GetInputEventHandler();
 
     analysisClusterCuts[i] = new AliCaloPhotonCuts();
     analysisClusterCuts[i]->SetV0ReaderName(V0ReaderName);
+    analysisClusterCuts[i]->SetCorrectionTaskSetting(corrTaskSetting);
     if(runLightOutput>0) analysisClusterCuts[i]->SetLightOutput(kTRUE);
     analysisClusterCuts[i]->SetCaloTrackMatcherName(TrackMatcherName);
     analysisClusterCuts[i]->SetExtendedMatchAndQA(enableExtMatchAndQA);
@@ -300,19 +325,22 @@ AliVEventHandler *inputHandler=mgr->GetInputEventHandler();
   task->SetNeutralPionCutList(NeutralPionCutList);
   task->SetMesonCutList(MesonCutList);
   task->SetPionCutList(PionCutList);
+  task->SetCorrectionTaskSetting(corrTaskSetting);
 
   task->SetMoveParticleAccordingToVertex(kTRUE);
   task->SetSelectedHeavyNeutralMeson(selectHeavyNeutralMeson);
 
   task->SetDoMesonQA(enableQAMesonTask );
 
+  task->SetUnsmearedOutputs(unsmearingoutputs);
+
   task->SetEnableSortingOfMCClusLabels(enableSortingMCLabels);
 
   //connect containers
   AliAnalysisDataContainer *coutput =
-  mgr->CreateContainer(Form("GammaConvNeutralMesonPiPlPiMiNeutralMeson_%i_%i_%i.root",selectHeavyNeutralMeson,neutralPionMode, trainConfig), TList::Class(),
+  mgr->CreateContainer(!(corrTaskSetting.CompareTo("")) ? Form("GammaConvNeutralMesonPiPlPiMiNeutralMeson_%i_%i_%i.root",selectHeavyNeutralMeson,neutralPionMode, trainConfig) : Form("GammaConvNeutralMesonPiPlPiMiNeutralMeson_%i_%i_%i_%s.root",selectHeavyNeutralMeson,neutralPionMode, trainConfig, corrTaskSetting.Data()), TList::Class(),
               AliAnalysisManager::kOutputContainer,Form("GammaConvNeutralMesonPiPlPiMiNeutralMeson_%i_%i_%i.root",selectHeavyNeutralMeson,neutralPionMode, trainConfig));
-
+  
   mgr->AddTask(task);
   mgr->ConnectInput(task,0,cinput);
   mgr->ConnectOutput(task,1,coutput);

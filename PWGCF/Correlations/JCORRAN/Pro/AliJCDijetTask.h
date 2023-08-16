@@ -27,6 +27,8 @@
 #include "AliMCEvent.h"
 #include "AliGenPythiaEventHeader.h"
 #include "AliAnalysisHelperJetTasks.h"
+#include "AliEventCuts.h"
+#include "AliYAMLConfiguration.h"
 
 
 
@@ -45,6 +47,34 @@ class AliJCDijetTask : public AliAnalysisTaskSE {
         AliJCDijetTask& operator = (const AliJCDijetTask& ap);
         virtual ~AliJCDijetTask();
 
+        static AliAnalysisTask *AddTaskJCDijetTask(TString taskName,
+                                    Bool_t isMC,
+                                    TString sJCatalyst        = "JCatalystTask",
+                                    TString sJCatalystDetMC   = "JCatalystDetMCTask",
+                                    UInt_t flags              = 0,
+                                    TString centBins          = "0.0 5.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0",
+                                    TString sDijetMBins       = "0, 20, 40, 45, 55, 65, 75, 85, 100, 120, 150, 250, 400, 500, 100000",
+                                    double jetCone            = 0.4,
+                                    double ktjetCone          = 0.4,
+                                    int ktScheme              = 1,
+                                    int antiktScheme          = 1,
+                                    Bool_t usePionMass        = false,
+                                    Bool_t useDeltaPhiBGSubtr = true,
+                                    double particleEtaCut     = 0.8,
+                                    double particlePtCut      = 0.15,
+                                    double leadingJetCut      = 20.0,
+                                    double subleadingJetCut   = 20.0,
+                                    double minJetPt           = 10.0,
+                                    double constituentCut     = 5.0,
+                                    double deltaPhiCut        = 2.0,
+                                    double matchingR          = 0.2,
+                                    double trackingIneff      = 0.0,
+                                    TString sAnchorPeriodForTracking = "",
+                                    AliJCDijetAna::jetClasses lUnfJetClassTrue = AliJCDijetAna::iAcc,
+                                    AliJCDijetAna::jetClasses lUnfJetClassDet = AliJCDijetAna::iAcc,
+                                    Bool_t useCoveredAreaRho  = false);
+
+
         // methods to fill from AliAnalysisTaskSE
         virtual void UserCreateOutputObjects(); 
         virtual void Init();   
@@ -53,8 +83,10 @@ class AliJCDijetTask : public AliAnalysisTaskSE {
         virtual void Terminate(Option_t* );
         AliJCatalystTask *GetJCatalystTask() {return fJCatalystTask;}
         void    SetCentralityBins( vector<double> centralityBins ) {fcentralityBins=centralityBins; }
+        void    SetDijetMBins( TString dijetMBins ) {fsDijetMBins=dijetMBins; }
         void    SetJetConeSize(double jetCone, double ktjetCone) {fjetCone=jetCone; fktJetCone=ktjetCone; }
-        void    SetBGSubtrSettings(int ktScheme, int antiktScheme, Bool_t usePionMass, Bool_t useDeltaPhiBGSubtr) {fktScheme=ktScheme; fantiktScheme=antiktScheme; fusePionMass=usePionMass; fuseDeltaPhiBGSubtr=useDeltaPhiBGSubtr; }
+        void    SetBGSubtrSettings(int ktScheme, int antiktScheme, Bool_t usePionMass, Bool_t useDeltaPhiBGSubtr, Bool_t luseCrho) {fktScheme=ktScheme; fantiktScheme=antiktScheme; fusePionMass=usePionMass; fuseDeltaPhiBGSubtr=useDeltaPhiBGSubtr; bUseCrho=luseCrho;}
+        void    SetUnfoldingJetSets(AliJCDijetAna::jetClasses lJetClassTrue, AliJCDijetAna::jetClasses lJetClassDet) { iUnfJetClassTrue = lJetClassTrue; iUnfJetClassDet = lJetClassDet;}
         Bool_t  IsMC()const{ return fIsMC; }
         void    SetIsMC(Bool_t b) { fIsMC=b; }
         void    SetCuts(double particleEta,
@@ -80,12 +112,18 @@ class AliJCDijetTask : public AliAnalysisTaskSE {
         enum{
             DIJET_VERTEX13PA      = 0x1,
             DIJET_PILEUPSPD       = 0x2,
-            DIJET_UTILSPILEUPSPD  = 0x4
+            DIJET_UTILSPILEUPSPD  = 0x4,
+            DIJET_ALIEVENTCUT     = 0x8,
+            DIJET_CATALYST        = 0x100
         };
 
         // Methods specific for this class
         void SetJCatalystTaskName(TString name){ fJCatalystTaskName=name; } // Setter for filter task name
         void SetJCatalystTaskNameDetMC(TString name){ fJCatalystDetMCTaskName=name; } // Setter for filter task name
+        void AddArtificialTrackingEfficiencyConfig(TString sAnchorPeriod);
+        void SetArtificialTrackingEfficiencyFromYAML();
+
+        AliEventCuts fEventCuts; // Event cut object
 
     private:
 
@@ -94,6 +132,7 @@ class AliJCDijetTask : public AliAnalysisTaskSE {
         TString           fJCatalystTaskName; // Name for JCatalyst task
         TString           fJCatalystDetMCTaskName; // Name for JCatalyst task
         vector<double> fcentralityBins;
+        TString fsDijetMBins;
         double fjetCone;
         double fktJetCone;
         int  fktScheme;
@@ -120,8 +159,18 @@ class AliJCDijetTask : public AliAnalysisTaskSE {
         UInt_t flags; //
         AliAnalysisUtils *fUtils; //!
         double fptHardBin;
+        double fPythiaSigma;
+        double fPythiaTrial;
         int fDetMCFlag;
+        AliJCDijetAna::jetClasses iUnfJetClassTrue;
+        AliJCDijetAna::jetClasses iUnfJetClassDet;
+        bool bUseCrho;
+        bool bGoodEvent;
+        bool bGoodMCEvent;
+        TH1D *fTrackEfficiencyHistogram; ///< This will define the tracking efficiency uncertainty in pt function. Implemented similarly as AliEmcalJetTask. At the moment only implemented for MB runs of pp and p--Pb.
+        PWG::Tools::AliYAMLConfiguration fYAMLConfig; ///< yaml configuration
+        TString fsAnchorPeriod;
 
-        ClassDef(AliJCDijetTask, 1); 
+        ClassDef(AliJCDijetTask, 3); 
 };
 #endif // ALIJCDIJETTASK_H

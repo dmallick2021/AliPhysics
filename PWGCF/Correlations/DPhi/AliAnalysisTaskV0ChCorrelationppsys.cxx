@@ -179,7 +179,9 @@ AliAnalysisTaskV0ChCorrelationppsys::AliAnalysisTaskV0ChCorrelationppsys()
      fHistEffEtaPtK0s(0),
      fHistEffEtaPtLambda(0),
      fHistEffEtaPtAntiLambda(0),
-     fHistEffEtaPtTrack(0)
+     fHistEffEtaPtTrack(0),
+     fHistSecContfactor(0)
+
 {
   fMassMean[0] = 0.497614; fMassMean[1] = 1.115683; //fMassMean[2] = 1.32171;
   fMassRes[0] = 0.005; fMassRes[1] = 0.0025; //fMassRes[2] = 0.0025;
@@ -317,7 +319,8 @@ AliAnalysisTaskV0ChCorrelationppsys::AliAnalysisTaskV0ChCorrelationppsys(const c
      fHistEffEtaPtK0s(0),
      fHistEffEtaPtLambda(0),
      fHistEffEtaPtAntiLambda(0),
-     fHistEffEtaPtTrack(0)
+     fHistEffEtaPtTrack(0),
+     fHistSecContfactor(0)
 {
    // Constructor
    // Define input and outPut slots here (never in the dummy constructor)
@@ -411,8 +414,9 @@ void AliAnalysisTaskV0ChCorrelationppsys::UserCreateOutputObjects()
       fHistEffEtaPtLambda = (TH2F*)fEffList->FindObject("fHistEffEtaPtLambdaCent0_100All");
       fHistEffEtaPtAntiLambda = (TH2F*)fEffList->FindObject("fHistEffEtaPtAntiLambdaCent0_100All");
       fHistEffEtaPtTrack = (TH2F*)fEffList->FindObject("fHistEffEtaPtTrackCent0_100All");
+      fHistSecContfactor = (TH1F*)fEffList->FindObject("fHistSecConta");
 
-      if(!fHistEffEtaPtK0s || !fHistEffEtaPtLambda || !fHistEffEtaPtAntiLambda || !fHistEffEtaPtTrack){
+      if(!fHistEffEtaPtK0s || !fHistEffEtaPtLambda || !fHistEffEtaPtAntiLambda || !fHistEffEtaPtTrack || !fHistSecContfactor){
         std::cout<<"Efficiency histograms are not available!"<<std::endl;
       }
     }
@@ -516,18 +520,18 @@ void AliAnalysisTaskV0ChCorrelationppsys::UserCreateOutputObjects()
    AddQAAnalysisMC();
    }*/
 
-  const Int_t nPtBinsV0Xi = 47;
-  const Double_t PtBinsV0Xi[48] = {0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 
+  const Int_t nPtBinsV0Xi = 49;
+  const Double_t PtBinsV0Xi[50] = {0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 
                                    1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
                                    2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 
                                    3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
-                                   4.0, 4.5, 5.0, 5.5, 6.0, 8.0, 10.0, 15.0};
-  const Int_t nPtBins = 48;
-  const Double_t PtBins[49] = {0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 
+                                   4.0, 4.5, 5.0, 5.5, 6.0, 8.0, 10.0, 16.0,20.0,25.0};
+  const Int_t nPtBins = 51;
+  const Double_t PtBins[52] = {0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 
                                1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
                                2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 
                                3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
-                               4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0};  
+                               4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 10.0,16.0,20.0,25.0};  
   //defining bins of Eta distribution
   const Int_t nEtaBins = 16;
   Double_t EtaBins[nEtaBins+1] = {0.};
@@ -809,13 +813,17 @@ const Int_t nZvtxBins  =  fNumOfVzBins;//fNumOfVzBins;
     }
 
 
-   const Int_t nPtBinsV0Xi = 1;
-   const Double_t PtBinsV0Xi[2] = {8.0,16.0}; 
+  
+   const Int_t nPtBinsV0Xi = 5;
+   const Double_t PtBinsV0Xi[6] = {3, 4, 6,10, 16, 25};
    
       
    // pt bins of associate particles for the analysis
    const Int_t nPtBins = 6;
-   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0}; 
+   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0};// 
+
+
+
 
    //defining bins of Eta distribution
    const Int_t nEtaBins = 16;
@@ -1156,10 +1164,11 @@ const Int_t nZvtxBins  =  fNumOfVzBins;//fNumOfVzBins;
     }
 
 
-   const Int_t nPtBinsV0Xi = 1;
-   const Double_t PtBinsV0Xi[2] = {8.0,16.0}; 
-   
+   const Int_t nPtBinsV0Xi = 5;
+   const Double_t PtBinsV0Xi[6] = {3, 4, 6,10, 16, 25};
     
+   
+      
    // pt bins of associate particles for the analysis
    const Int_t nPtBins = 6;
    const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0}; 
@@ -1380,13 +1389,16 @@ void AliAnalysisTaskV0ChCorrelationppsys::AddQAAnalysisLambda()
         }
     }
   
-   const Int_t nPtBinsV0Xi = 1;
-   const Double_t PtBinsV0Xi[2] = {8.0,16.0}; 
+ 
+
+   const Int_t nPtBinsV0Xi = 5;
+   const Double_t PtBinsV0Xi[6] = {3, 4, 6,10, 16, 25};
    
-    
+      
    // pt bins of associate particles for the analysis
    const Int_t nPtBins = 6;
-   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0}; 
+   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0};// 
+
 
    // cascade trigger class: 1 - signal (mass peak region), 2 - left mass sideband, 3 - right mass sideband
    const Int_t nTrigC = 3;
@@ -1623,13 +1635,16 @@ void AliAnalysisTaskV0ChCorrelationppsys::AddQAAnalysisAntiLambda()
     }
    
    
-   const Int_t nPtBinsV0Xi = 1;
-   const Double_t PtBinsV0Xi[2] = {8.0,16.0}; 
+  
+   const Int_t nPtBinsV0Xi = 5;
+   const Double_t PtBinsV0Xi[6] = {3, 4, 6,10, 16, 25};
    
-    
+   
+      
    // pt bins of associate particles for the analysis
    const Int_t nPtBins = 6;
-   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0}; 
+   const Double_t PtBins[7] = {1.0,2.0,3.0,4.0,6.0,8.0,10.0};// 
+
 
 
    // cascade trigger class: 1 - signal (mass peak region), 2 - left mass sideband, 3 - right mass sideband
@@ -2372,8 +2387,9 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
 
       
       Double_t spTrack[4] = {tPt, tEta, lPercentile, lPVz};
-      if(fEffCorr){
-          Double_t weight = fHistEffEtaPtTrack->Interpolate(tr->Eta(), tr->Pt());
+      if(fEffCorr){              
+         Double_t weight = fHistEffEtaPtTrack->Interpolate(tr->Eta(), tr->Pt())/(1.- fHistSecContfactor->Interpolate(tr->Pt()));
+
           if(weight == 0){
             continue;
           }
@@ -2673,7 +2689,8 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
         //Filling correlation histograms and histograms for triggers counting
         if(fEffCorr){
 
-          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+        
           Double_t weight = weightTrack;
           if(weight == 0){
           continue;
@@ -2769,7 +2786,8 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
         //Filling correlation histograms and histograms for triggers counting
         if(fEffCorr){
           Double_t weightK0s = fHistEffEtaPtK0s->Interpolate(v0->Eta(), v0->Pt());
-          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+
           Double_t weight = weightK0s * weightTrack;
           if(weight == 0){
             continue;
@@ -2866,7 +2884,8 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
         //Filling correlation histograms and histograms for triggers counting
         if(fEffCorr){
           Double_t weightLambda = fHistEffEtaPtLambda->Interpolate(v0->Eta(), v0->Pt());
-          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+
           Double_t weight = weightLambda * weightTrack;
           if(weight == 0){
             continue;
@@ -2962,7 +2981,7 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
 
          if(fEffCorr){
           Double_t weightAntiLambda = fHistEffEtaPtAntiLambda->Interpolate(v0->Eta(), v0->Pt());
-          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+          Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
           Double_t weight = weightAntiLambda * weightTrack;
           if(weight == 0){
             continue;
@@ -3038,8 +3057,9 @@ for (Int_t j=0; j <MCLambda->GetEntriesFast(); j++){
             
            
 if(fEffCorr){
-
-                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+                
+               Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+                
                 Double_t weight = weightTrack;
                 if(weight == 0){
                   continue;
@@ -3084,7 +3104,9 @@ if(fAnalysisMC){
  
               if(fEffCorr){
                 Double_t weightK0s = fHistEffEtaPtK0s->Interpolate(trig->Eta(),trig->Pt());
-                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+
+
                 Double_t weight = weightK0s * weightTrack;
                 if(weight == 0){
                   continue;
@@ -3131,7 +3153,9 @@ if(fAnalysisMC){
 
               if(fEffCorr){
                 Double_t weightLambda = fHistEffEtaPtLambda->Interpolate(trig->Eta(),trig->Pt());
-                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+
+
                 Double_t weight = weightLambda * weightTrack;
                 if(weight == 0){
                   continue;
@@ -3179,7 +3203,8 @@ if(fAnalysisMC){
 
               if(fEffCorr){
                 Double_t weightAntiLambda = fHistEffEtaPtAntiLambda->Interpolate(trig->Eta(),trig->Pt());
-                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt());
+                Double_t weightTrack = fHistEffEtaPtTrack->Interpolate(atr->Eta(), atr->Pt())/(1.- fHistSecContfactor->Interpolate(atr->Pt()));
+
                 Double_t weight = weightAntiLambda * weightTrack;
                 if(weight == 0){
                   continue;

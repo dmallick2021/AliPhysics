@@ -100,14 +100,18 @@ set(SRCS
       LMEE/AliAnalysisTask_Syst_PtDistributionsMC.cxx
       LMEE/AliAnalysisTaskDielectronsPbPb_Data.cxx
       LMEE/AliAnalysisTaskDielectronsPbPb_Efficiency.cxx
+      LMEE/AliAnalysisTaskGammaPythia.cxx
       LMEE/AliAnalysisTaskeeCor.cxx
       LMEE/AliAnalysisTaskMLTreeMaker.cxx
+      LMEE/AliAnalysisTaskMLTreeMaker2018.cxx
       LMEE/AliAnalysisTaskMLTreeMakerEff.cxx
+      LMEE/AliAnalysisTaskOmegaDielectron_AccEff.cxx
       LMEE/AliAnalysisTaskSimpleTreeMaker.cxx
       LMEE/AliDielectronReducedTrack.cxx
       LMEE/AliAnalysisTaskTGReducedTree.cxx
       LMEE/AliAnalysisTaskReducedTreeDS.cxx
       LMEE/AliAnalysisTaskLMeeCocktailMC.cxx
+      LMEE/AliAnalysisTaskLMeePureMC.cxx	
       LMEE/AliCocktailSmearing.cxx
       LMEE/AliAnalysisTaskCharm.cxx
       LMEE/AliAnalysisTaskBeauty.cxx

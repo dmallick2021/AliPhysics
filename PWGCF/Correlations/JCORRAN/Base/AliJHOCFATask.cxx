@@ -13,25 +13,25 @@
  * provided "as is" without express or implied warranty.                  *
  **************************************************************************/
 
-#include <AliAnalysisManager.h>
-#include <AliJBaseTrack.h>
 #include "AliJHOCFATask.h"
+#include "AliAnalysisManager.h"
+#include "AliJBaseTrack.h"
 
 /* -------------------------------------------------------------------------- /
 / Methods inherited from AliAnalysisTaskSE.                                   /
 / -------------------------------------------------------------------------- */
 AliJHOCFATask::AliJHOCFATask():   
 	AliAnalysisTaskSE("JHOCFATask"),
-	fJCatalystTask(NULL),
-	fJCatalystTaskName("JCatalystTask"),
+	fJCatalystTask(NULL), fJCatalystTaskName("JCatalystTask"),
+  fHOCFATask(NULL),
 	fIsMC(kFALSE),
-	fHOCFATask(NULL),
-	fHOCFANCentralityBins(9),
-  fHOCFAMultiplicityMin(10),
-  fHOCFAUseWeights(kTRUE),
-  fHOCFANCombi(6),
-  fHOCFAvalues(0),
-  fHOCFAcombi(0)
+	fHOCFADebugLevel(0),
+  fHOCFAvalues(""),
+	fHOCFAnCentralityBins(9), fHOCFAMultiplicityMin(10),
+	fHOCFAPtMin(0.2), fHOCFAPtMax(5.),
+  fHOCFAEtaGap(0.), fHOCFAApplyEtaGap(kFALSE),
+  fHOCFAUseWeightsNUE(kTRUE), fHOCFAUseWeightsNUA(kFALSE), fHOCFAUseWeightsCent(kFALSE),
+  fHOCFAGetSC(kTRUE), fHOCFAGetLower(kTRUE)
 {
 // Dummy constructor of the class.
 }
@@ -39,16 +39,16 @@ AliJHOCFATask::AliJHOCFATask():
 // ------------------------------------------------------------------------- //
 AliJHOCFATask::AliJHOCFATask(const char *name):
 	AliAnalysisTaskSE(name),
-	fJCatalystTask(NULL),
-	fJCatalystTaskName("JCatalystTask"),
-	fIsMC(kFALSE),
-	fHOCFATask(NULL),
-	fHOCFANCentralityBins(9),
-  fHOCFAMultiplicityMin(10),
-  fHOCFAUseWeights(kTRUE),
-  fHOCFANCombi(6),
-  fHOCFAvalues(0),
-  fHOCFAcombi(0)
+  fJCatalystTask(NULL), fJCatalystTaskName("JCatalystTask"),
+  fHOCFATask(NULL),
+  fIsMC(kFALSE),
+  fHOCFADebugLevel(0),
+  fHOCFAvalues(""),
+  fHOCFAnCentralityBins(9), fHOCFAMultiplicityMin(10),
+  fHOCFAPtMin(0.2), fHOCFAPtMax(5.),
+  fHOCFAEtaGap(0.), fHOCFAApplyEtaGap(kFALSE),
+  fHOCFAUseWeightsNUE(kTRUE), fHOCFAUseWeightsNUA(kFALSE), fHOCFAUseWeightsCent(kFALSE),
+  fHOCFAGetSC(kTRUE), fHOCFAGetLower(kTRUE)
 {
 // Constructor of the class.
 	AliInfo("AliJHOCFATask Constructor");
@@ -58,16 +58,17 @@ AliJHOCFATask::AliJHOCFATask(const char *name):
 // ------------------------------------------------------------------------- //
 AliJHOCFATask::AliJHOCFATask(const AliJHOCFATask& ap):
 	AliAnalysisTaskSE(ap.GetName()), 
-	fJCatalystTask(ap.fJCatalystTask),
-	fJCatalystTaskName(ap.fJCatalystTaskName),
+  fJCatalystTask(ap.fJCatalystTask), fJCatalystTaskName(ap.fJCatalystTaskName),
+  fHOCFATask(ap.fHOCFATask),
   fIsMC(ap.fIsMC),
-	fHOCFATask(ap.fHOCFATask),
-	fHOCFANCentralityBins(ap.fHOCFANCentralityBins),
-  fHOCFAMultiplicityMin(ap.fHOCFAMultiplicityMin),
-  fHOCFAUseWeights(ap.fHOCFAUseWeights),
-  fHOCFANCombi(ap.fHOCFANCombi),
+  fHOCFADebugLevel(ap.fHOCFADebugLevel),
   fHOCFAvalues(ap.fHOCFAvalues),
-  fHOCFAcombi(ap.fHOCFAcombi)
+  fHOCFAnCentralityBins(ap.fHOCFAnCentralityBins), fHOCFAMultiplicityMin(ap.fHOCFAMultiplicityMin),
+  fHOCFAPtMin(ap.fHOCFAPtMin), fHOCFAPtMax(ap.fHOCFAPtMax),
+  fHOCFAEtaGap(ap.fHOCFAEtaGap), fHOCFAApplyEtaGap(ap.fHOCFAApplyEtaGap),
+  fHOCFAUseWeightsNUE(ap.fHOCFAUseWeightsNUE), fHOCFAUseWeightsNUA(ap.fHOCFAUseWeightsNUA),
+  fHOCFAUseWeightsCent(ap.fHOCFAUseWeightsCent),
+  fHOCFAGetSC(ap.fHOCFAGetSC), fHOCFAGetLower(ap.fHOCFAGetLower)
 { 
 // Copy operator of the class.
 	AliInfo("DEBUG AliJHOCFATask COPY");
@@ -94,7 +95,7 @@ AliJHOCFATask::~AliJHOCFATask()
 // ------------------------------------------------------------------------- //
 void AliJHOCFATask::UserCreateOutputObjects()
 {  
-	if (fDebug > 1) {printf("AliJHOCFATask::UserCreateOutPutData() \n");}
+	if (fHOCFADebugLevel > 1) {printf("AliJHOCFATask::UserCreateOutPutData().\n");}
 
 // Create the jCorran output objects.
 	AliAnalysisManager *man = AliAnalysisManager::GetAnalysisManager();
@@ -102,14 +103,20 @@ void AliJHOCFATask::UserCreateOutputObjects()
 	fJCatalystTask = (AliJCatalystTask*)(man->GetTask(fJCatalystTaskName));
 
 // Create an instance of the analysis task.
-	fHOCFATask = new AliAnalysisTaskHOCFA("HOCFA", kFALSE);
-	fHOCFATask->SetDebugLevel(fDebug);
-  fHOCFATask->SetCentralityBinning(fHOCFANCentralityBins);
+	fHOCFATask = new AliAnalysisTaskHOCFA("HOCFA");
+	fHOCFATask->SetDebugLevel(fHOCFADebugLevel);
+
+  fHOCFATask->SetCentralityBinning(fHOCFAnCentralityBins);
   fHOCFATask->SetCentralityArray(fHOCFAvalues);
   fHOCFATask->SetMinMultiplicity(fHOCFAMultiplicityMin);
-  fHOCFATask->SetParticleWeights(fHOCFAUseWeights);
-  fHOCFATask->SetNumberCombi(fHOCFANCombi);
-  fHOCFATask->SetHarmoArray(fHOCFAcombi);
+
+  fHOCFATask->SetPtRange(fHOCFAPtMin, fHOCFAPtMax);
+  fHOCFATask->SetEtaGap(fHOCFAApplyEtaGap, fHOCFAEtaGap);
+  fHOCFATask->SetParticleWeights(fHOCFAUseWeightsNUE, fHOCFAUseWeightsNUA);
+  fHOCFATask->SetCentralityWeights(fHOCFAUseWeightsCent);
+
+  fHOCFATask->SetObservable(fHOCFAGetSC, fHOCFAGetLower);
+
 	OpenFile(1);
 
 	fHOCFATask->UserCreateOutputObjects();
@@ -127,18 +134,18 @@ void AliJHOCFATask::Init()
 void AliJHOCFATask::UserExec(Option_t* /*option*/) 
 {
 // Processing of one event.
-	if (fDebug > 5) {printf("AliJHOCFATask::UserExec() \n");}
-	if (!((Entry()-1)%100)) {AliInfo(Form(" Processing event # %lld",  Entry()));}
+	if (fHOCFADebugLevel > 5) {printf("AliJHOCFATask::UserExec() \n");}
+	if (!((Entry()-1)%100)) {AliInfo(Form("Processing event # %lld",  Entry()));}
 
 	if (fJCatalystTask->GetJCatalystEntry() != fEntry) {return;}
 	if (fJCatalystTask->GetCentrality() > 80. || fJCatalystTask->GetCentrality() < 0.) {return;}
-	if (fDebug > 5) {
+	if (fHOCFADebugLevel > 5) {
 		cout << Form("Event %d:%d\n",fEntry, fJCatalystTask->GetJCatalystEntry()) << endl;
 		cout << Form("%s, Nch = %d, cent = %.0f\n", GetJCatalystTaskName().Data(), fJCatalystTask->GetInputList()->GetEntriesFast(), fJCatalystTask->GetCentrality()) << endl;
 	}
 
-	fHOCFATask->SetInputList( fJCatalystTask->GetInputList() );
-	fHOCFATask->SetEventCentrality( fJCatalystTask->GetCentrality() );
+	fHOCFATask->SetInputList(fJCatalystTask->GetInputList());
+	fHOCFATask->SetEventCentrality(fJCatalystTask->GetCentrality());
 	fHOCFATask->UserExec("");
 }
 
